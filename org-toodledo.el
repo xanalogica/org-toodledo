@@ -25,6 +25,7 @@
 ;; Call org-toodledo-update to bring in new/updated tasks (skips locally modified tasks newer than updated)
 ;; Call org-toodledo-sync-task to create or update the current task
 ;; Call org-toodledo-delete-current-task to delete the current task
+;; Call org-toodledo-touch to mark the task as modified at the time it is touched
 ;;
 ;; Doesn't do lots of error trapping. Might be a good idea to version-control your Org file.
 ;;
@@ -58,8 +59,42 @@
 ;; - [ ] Make sure sync timestamps aren't getting updated more often than needed
 ;; - [ ] Suggest some kind of hook to make it easier to mark a task as locally modified
 
+;; ** TODO Problems: highest priority at top 
+;; - [ ] TAGS get dropped from emacs side after a few exchanges (but, "contexts" stay) (stophlong)
+;; - [ ] Start date in toodledo does NOT get mapped to scheduled, but scheduled in emacs gets mapped to start date  (stophlong)
+;; - [ ] Due date in toodledo does get mapped to deadline minus 1, and deadline in emacs gets mapped to due date plus 1 (at least when I did it at late in the day.) (stophlong)
+;; - [ ] If a task is marked DONE in emacs, sync'd, then marked TODO, sync'd, it is still marked "completed" in properties in emacs. (stophlong)
+;; 
+;; ** TODO Feature Requests: highest priority at top
+;; - [ ] It'd be great to allow notes to contain asterisks.  Make "[CR]** " the special key?  I use multiple asterisks all the time in notes.  (stophlong)
+;; - [ ] org-toodledo-push to push ALL tasks that have been modified more recently in emacs than toodledo
+;; - [ ] Is it possible to hide :PROPERTIES: drawer on emacs side?  If there is a way to hide properties that'd be great. (stophlong)
+;; - [ ] I'd suggest renaming "update" to "pull"; rename "sync-task" to "push-task" to be consistent with org-mobile-pull and org-mobile-push. (stophlong)
+;; - [ ] access to toodledo via proxy would also be good for those inside proxy based firewalls. (stophlong)
+;; - [ ] How to deal with sub-tasks? the paid version of toodledo (which I don't have) has sub-tasks.  At some point, might try to deal with those. (stophlong)
+
+;; RECENTLY DONE:
+;; -- Made w3mexcerpt.el file.  I excerpted the needed things from w3m (since w3m requires things which require things which require things which require an executable which is not longer readily available.). (Tue, May 18 2010, 19:19:46)
+
+;; -- Altered priority mapping to better sync org-mode's ABC and Toodledo's 3,2,1,0,-1
+;;
+;; Toodledo --> org-mode priorities 
+;; -1 --> C
+;;  0 --> C (0=low is default in toodledo)
+;;  1 --> no listed priority (close to org-mode's "nothing" which is equivalent to B in sorting)
+;;  2 --> B
+;;  3 --> A
+;;
+;; org-mode --> toodledo priorities.
+;; C --> 0
+;; nothing --> 1
+;; B --> 2
+;; A --> 3
+;; 
+;; -- Defined what does org-toodledo-touch does in the documentation (stophlong)
+
 (require 'org)
-(require 'w3m)
+(load "w3mexcerpt") ;; if you have w3m installed you can alternatively use (require 'w3m)
 (require 'xml)
 (defcustom org-toodledo-userid ""
   "UserID from Toodledo: http://www.toodledo.com/info/api_doc.php"
@@ -302,7 +337,8 @@ Return a list of task alists."
                      (cond
                       ((equal priority "[#A]") "2")
                       ((equal priority "[#B]") "1")
-                      ((equal priority "[#C]") "0")))
+                      ((equal priority "[#C]") "0")
+                      (t "1"))) ;; Force org-mode's no priority to be same as [#B] as is done in org-mode.
                (cons "note"
                      (org-toodledo-entry-note))))
         (when (org-entry-get nil "DEADLINE")
@@ -507,10 +543,10 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
      (make-string (or level 2) ?*) " "
      (org-toodledo-status-to-string task) " "
      (cond
-      ((equal priority "-1") "")
+      ((equal priority "-1") "[#C] ") 
       ((equal priority "0") "[#C] ")
-      ((equal priority "1") "[#B] ")
-      ((equal priority "2") "[#A] ")
+      ((equal priority "1") "") 
+      ((equal priority "2") "[#B] ") 
       ((equal priority "3") "[#A] "))
      (org-toodledo-task-title task)
      (if (org-toodledo-task-context task)
