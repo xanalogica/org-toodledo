@@ -99,7 +99,7 @@
 
 (require 'xml)
 (defcustom org-toodledo-userid ""
-  "UserID from Toodledo: http://www.toodledo.com/info/api_doc.php"
+  "UserID from Toodledo (not your e-mail address): http://www.toodledo.com/info/api_doc.php"
   :group 'org-toodledo
   :type 'string)
 
