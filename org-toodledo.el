@@ -201,6 +201,45 @@
      ,description
      (org-toodledo-call-method ,api-name params)))
 
+
+(defmacro org-toodledo-make-lookup-function (function-name add-method get-method root-element get-function cache-variable)
+  "Create a lookup function and caching functions for FUNCTION-NAME."
+  (list
+   'progn
+  `(defvar ,(intern cache-variable) nil)
+  `(defun ,(intern get-function) (&optional force)
+     ,(concat "Store an alist of (title . id) in `" cache-variable "'.
+Reload if FORCE is non-nil.")
+     (if (or force (null ,(intern cache-variable)))
+	 (setq ,(intern cache-variable)
+	       (mapcar
+		(lambda (node)
+		  (cons
+		   (car (xml-node-children node))
+		   (xml-get-attribute node 'id)))
+		(xml-get-children (car
+				   (org-toodledo-call-method ,get-method)) ,root-element)))
+       ,(intern cache-variable)))
+  `(defun ,(intern (concat "org-toodledo-" function-name "-to-id")) (item) 
+     "Return numeric ID for CONTEXT, creating if necessary."
+     (let ((lookups ,(list (intern get-function))))
+       (if (null (assoc item lookups))
+	   ;; Create it if it does not yet exist
+	   (let ((result
+		  (org-toodledo-call-method
+		   ,add-method
+		   (list (cons "title" item)))))
+	     (if (eq (caar result) 'added)
+		 (setq ,(intern cache-variable)
+		      (cons (cons item
+				  (elt (car result) 2))
+			    ,(intern cache-variable))
+		      lookups ,(intern cache-variable)))))
+       (cdr (assoc item lookups))))))
+(org-toodledo-make-lookup-function "context" "addContext" "getContexts" 'context "org-toodledo-get-contexts" "org-toodledo-contexts")
+(org-toodledo-make-lookup-function "folder" "addFolder" "getFolders" 'folder "org-toodledo-get-folders" "org-toodledo-folders")
+(org-toodledo-make-lookup-function "goal" "addGoal" "getGoals" 'goal "org-toodledo-get-goals" "org-toodledo-goals")
+
 (defun org-toodledo-get-server-info ()
   "Return server information."
   (org-toodledo-convert-xml-result-to-alist
@@ -275,6 +314,7 @@ Return a list of task alists."
           (buffer-substring-no-properties (point-min)
                                           (point-max)))))))
 
+
 (defun org-toodledo-parse-current-task ()
   "Extract the status and Toodledo ID of the current task."
   (save-excursion
@@ -298,24 +338,7 @@ Return a list of task alists."
                      (lambda (tag)
                        (if (> (length tag) 0)
                            (if (string-match (org-re "@\\([[:alnum:]_]+\\)") tag)
-                               (progn
-                                 ;; Not recognized context
-                                 (if (null (assoc (match-string 1 tag) contexts))
-                                     ;; Create it if it does not yet exist
-                                     (let ((result
-                                            (org-toodledo-call-method
-                                             "addContext"
-                                             (list (cons "title" (match-string 1 tag))))))
-                                       (if (eq (caar result) 'added)
-                                           (setq org-toodledo-contexts
-                                                 (cons (cons (match-string 1 tag)
-                                                             (elt (car result) 2))
-                                                       org-toodledo-contexts)
-                                                 contexts org-toodledo-contexts))))
-                                   ;; Get the ID of the context
-                                 (setq context
-                                       (cdr (assoc (match-string 1 tag) contexts)))
-                                 nil)
+			       (setq context (org-toodledo-context-to-id (match-string 1 tag)))
                              tag)))
                      (split-string tags ":")))))
         (setq info
@@ -343,6 +366,10 @@ Return a list of task alists."
                       (t "1"))) ;; Force org-mode's no priority to be same as [#B] as is done in org-mode.
                (cons "note"
                      (org-toodledo-entry-note))))
+        (when (org-entry-get nil "FOLDER")
+          (setq info (cons (cons "folder" (org-toodledo-folder-to-id (org-entry-get nil "FOLDER"))) info)))
+        (when (org-entry-get nil "GOAL")
+          (setq info (cons (cons "goal" (org-toodledo-goal-to-id (org-entry-get nil "GOAL"))) info)))
         (when (org-entry-get nil "DEADLINE")
           (setq info (cons (cons "duedate"
                                  (substring (org-entry-get nil "DEADLINE")
@@ -538,7 +565,7 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
 ;; (org-toodledo-task-to-string task)
 (defun org-toodledo-task-to-string (task &optional level)
   "Return an Org-formatted version of TASK."
-  (let* ((repeat (string-to-number (org-toodledo-task-repeat task)))
+  (let* ((repeat (string-to-number (or (org-toodledo-task-repeat task) "0")))
          (rep-advanced (org-toodledo-task-repeat-advanced task))
          (repeat-string (org-toodledo-repeat-to-string repeat rep-advanced))
          (priority (org-toodledo-task-priority task)))
@@ -578,6 +605,12 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
      ":PROPERTIES:\n"
      ":Toodledo-ID: " (org-toodledo-task-id task) "\n"
      ":Modified: " (org-toodledo-task-modified task) "\n"
+     (if (not (equal (org-toodledo-task-folder task) "0"))
+	 (concat ":Folder: " (car (rassoc (org-toodledo-task-folder task) org-toodledo-folders)) "\n")
+       "")
+     (if (not (equal (org-toodledo-task-goal task) "0"))
+	 (concat ":Goal: " (car (rassoc (org-toodledo-task-goal task) org-toodledo-folders)) "\n")
+       "")
      ":Sync: " (format "%d" (float-time (current-time))) "\n"
      ":Effort: " (org-toodledo-task-length task) "\n"
      ":END:\n"
@@ -666,27 +699,15 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
 (org-toodledo-task-prop-defun "duedate")
 (org-toodledo-task-prop-defun "startdate")
 (org-toodledo-task-prop-defun "modified")
+(org-toodledo-task-prop-defun "folder")
+(org-toodledo-task-prop-defun "goal")
 (org-toodledo-task-prop-defun "priority")
 (org-toodledo-task-prop-defun "note")
 (org-toodledo-task-prop-defun "length")
+
 ;; defun'd separately because of the change in name
 (defun org-toodledo-task-repeat-advanced (task)
   (cdr (assoc "rep_advanced" task)))
-
-(defvar org-toodledo-contexts nil "An alist of (context . id).")
-(defun org-toodledo-get-contexts (&optional force)
-  "Store an alist of (context . id) in `org-toodledo-contexts'.
-Reload if FORCE is non-nil."
-  (if (or force (null org-toodledo-contexts))
-      (setq org-toodledo-contexts
-            (mapcar
-             (lambda (node)
-               (cons
-              (car (xml-node-children node))
-              (xml-get-attribute node 'id)))
-             (xml-get-children (car
-                                (org-toodledo-call-method "getContexts")) 'context)))
-    org-toodledo-contexts))
 
 (defun org-toodledo-agenda-touch ()
   "Update the Modified timestamp for the current entry in the agenda."
