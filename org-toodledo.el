@@ -202,23 +202,6 @@
      (org-toodledo-call-method ,api-name params)))
 
 
-				   (defun org-toodledo-context-to-id (context)
-  "Return numeric ID for CONTEXT, creating if necessary."
-  (let ((contexts (org-toodledo-get-contexts)))
-    (if (null (assoc context contexts))
-	;; Create it if it does not yet exist
-	(let ((result
-	       (org-toodledo-call-method
-		"addContext"
-		(list (cons "title" context)))))
-	  (if (eq (caar result) 'added)
-	      (setq org-toodledo-contexts
-		    (cons (cons context
-				(elt (car result) 2))
-			  org-toodledo-contexts)
-		    contexts org-toodledo-contexts))))
-    (cdr (assoc (match-string 1 tag) contexts))))
-
 (defmacro org-toodledo-make-lookup-function (function-name add-method get-method root-element get-function cache-variable)
   "Create a lookup function and caching functions for FUNCTION-NAME."
   (list
@@ -239,7 +222,7 @@ Reload if FORCE is non-nil.")
        ,(intern cache-variable)))
   `(defun ,(intern (concat "org-toodledo-" function-name "-to-id")) (item) 
      "Return numeric ID for CONTEXT, creating if necessary."
-     (let ((lookups (funcall ,(intern get-function))))
+     (let ((lookups ,(list (intern get-function))))
        (if (null (assoc item lookups))
 	   ;; Create it if it does not yet exist
 	   (let ((result
@@ -255,7 +238,7 @@ Reload if FORCE is non-nil.")
        (cdr (assoc item lookups))))))
 (org-toodledo-make-lookup-function "context" "addContext" "getContexts" 'context "org-toodledo-get-contexts" "org-toodledo-contexts")
 (org-toodledo-make-lookup-function "folder" "addFolder" "getFolders" 'folder "org-toodledo-get-folders" "org-toodledo-folders")
-
+(org-toodledo-make-lookup-function "goal" "addGoal" "getGoals" 'goal "org-toodledo-get-goals" "org-toodledo-goals")
 
 (defun org-toodledo-get-server-info ()
   "Return server information."
@@ -385,6 +368,8 @@ Return a list of task alists."
                      (org-toodledo-entry-note))))
         (when (org-entry-get nil "FOLDER")
           (setq info (cons (cons "folder" (org-toodledo-folder-to-id (org-entry-get nil "FOLDER"))) info)))
+        (when (org-entry-get nil "GOAL")
+          (setq info (cons (cons "goal" (org-toodledo-goal-to-id (org-entry-get nil "GOAL"))) info)))
         (when (org-entry-get nil "DEADLINE")
           (setq info (cons (cons "duedate"
                                  (substring (org-entry-get nil "DEADLINE")
@@ -623,6 +608,9 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
      (if (not (equal (org-toodledo-task-folder task) "0"))
 	 (concat ":Folder: " (car (rassoc (org-toodledo-task-folder task) org-toodledo-folders)) "\n")
        "")
+     (if (not (equal (org-toodledo-task-goal task) "0"))
+	 (concat ":Goal: " (car (rassoc (org-toodledo-task-goal task) org-toodledo-folders)) "\n")
+       "")
      ":Sync: " (format "%d" (float-time (current-time))) "\n"
      ":Effort: " (org-toodledo-task-length task) "\n"
      ":END:\n"
@@ -712,6 +700,7 @@ been added/edited and (\"deleted\" . \"timestamp\") if tasks have been deleted."
 (org-toodledo-task-prop-defun "startdate")
 (org-toodledo-task-prop-defun "modified")
 (org-toodledo-task-prop-defun "folder")
+(org-toodledo-task-prop-defun "goal")
 (org-toodledo-task-prop-defun "priority")
 (org-toodledo-task-prop-defun "note")
 (org-toodledo-task-prop-defun "length")
