@@ -1,3 +1,4 @@
+
 org-toodledo.el - Toodledo integration for Emacs Org mode
 (c) 2010 Sacha Chua (sacha@sachachua.com)
 
@@ -12,3 +13,6 @@ Call org-toodledo-delete-current-task to delete the current task
 Doesn't do lots of error trapping. Might be a good idea to version-control your Org file.
 
 See the header of org-toodledo.el for more.
+
+Note: org-toodledo-userid is not your e-mail address, but your
+developer ID from http://www.toodledo.com/info/api_doc.php .
