@@ -54,9 +54,9 @@
 ;;
 ;;   * TASKS 
 ;;     :PROPERTIES:
-;;     :Toodledo-lastsync: 1315343842
-;;     :Toodledo-lastedit_task: 1315337478
-;;     :Toodledo-lastdelete_task: 1314972230
+;;     :ToodledoLastSync: 1315343842
+;;     :ToodledoLastEdit: 1315337478
+;;     :ToodledoLastDelete: 1314972230
 ;;     :END:
 ;;
 ;; This is referred to as the 'base Toodledo entry'.
@@ -70,7 +70,7 @@
 ;; 
 ;;   1. Tasks added to the server since the last sync are downloaded
 ;;      and inserted as sub-headings to the Toodledo base heading (has
-;;      the `Toodledo-lastsync' property)
+;;      the `ToodledoLastSync' property)
 ;;
 ;;   2. Tasks modified on the server are compared against the local
 ;;      copy.  If the local copy was not modified since the last sync,
@@ -127,22 +127,22 @@
 ;; The table lists the possible Toodledo fields and how they are
 ;; mapped to org-mode style tasks:
 ;;
-;; | Toodledo Field | Org-mode                | Comments                                                  |
-;; | id             | Property :Toodledo-ID:  | If present, this task was previoiusly synced              |
-;; | title          | Heading                 | The one line heading minus TODO state, priority and tags  |
-;; | status         | TODO state              | See `org-toodledo-status-to-org-map'                      |
-;; | startdate      | SCHEDULED               |                                                           |
-;; | duedate        | DEADLINE                |                                                           |
-;; | completed      | CLOSED                  | Timestamp when the task was marked completed              |
-;; | repeat         | Repeat interval         |                                                           |
-;; | repeatfrom     |                         |                                                           |
-;; | context        | Tag                     | Context string "Work" becomes a tag :@Work:               |
-;; | modified       | Property :Modified:     | Timestamp when this task was last modifed (set by server) |
-;; | folder         | Property :Folder:       |                                                           |
-;; | goal           | Property :Goal:         |                                                           |
-;; | priority       | Priority                | 3=>A, 2=>B, 1=>C, -1,0 => D                               |
-;; | note           | Body                    | Body of the task minus the properties                     |
-;; | length         | Effort                  |                                                           |
+;; | Toodledo Field | Org-mode               | Comments                                     |
+;; | id             | Property :ToodledoID:  | If present, this task was previoiusly synced |
+;; | title          | Heading                | Heading minus TODO state, priority and tags  |
+;; | status         | TODO state             | See `org-toodledo-status-to-org-map'         |
+;; | startdate      | SCHEDULED              |                                              |
+;; | duedate        | DEADLINE               |                                              |
+;; | completed      | CLOSED                 | Timestamp when the task was marked completed |
+;; | repeat         | Repeat interval        |                                              |
+;; | repeatfrom     |                        |                                              |
+;; | context        | Tag                    | Context string "Work" becomes a tag :@Work:  |
+;; | modified       | Property :Modified:    | Timestamp when last modifed (set by server)  |
+;; | folder         | Property :Folder:      |                                              |
+;; | goal           | Property :Goal:        |                                              |
+;; | priority       | Priority               | 3=>A, 2=>B, 1=>C, -1,0 => D                  |
+;; | note           | Body                   | Body of the task minus the properties        |
+;; | length         | Effort                 |                                              |
 ;;
 ;; TODO STATES
 ;; -----------
@@ -168,6 +168,34 @@
 ;; the task context of :@Phone: when Phone is not a valid context will 
 ;; loose the context.
 ;; 
+;; SUBTASKS
+;; --------
+;;
+;; Sub-tasks are supported by Toodledo with a Pro account subscription.  
+;; When enabled, a 2-level task hierarchy is supported:
+;;
+;;   * TODO Write a best-selling novel
+;;   ** DONE Make an outline
+;;   ** WAITING Call Susan about the contract
+;;   ** TODO Finish writing
+;;   ** TODO Profit
+;;
+;; The parent/child relationship is tracked dynamically at the time
+;; of sync, looking for the next heading up for each task, and if present
+;; and a task, link the task to the parent.
+;;
+;; Bi-directional synchronization is fully supported.
+;;
+;; If the account is not a Pro account, subtasks will still be synced
+;; to the server, but the parent/child relationship is not.  This
+;; yields a flat list of tasks on the server.  Note that the hierarchy
+;; in the org file is still maintained even though not on the server.
+;;
+;; NOTE: A 3-level hierarchy of TODO items will not work and will 
+;; probably cause an error during sync.  It's no problem to use
+;; a much deeper hierarchy of org items, as long as only the last
+;; two are actually TODO items.
+;;
 ;; MISCELLANEOUS NOTES
 ;; -------------------
 ;;
@@ -193,8 +221,14 @@
 ;;
 ;; ** TODO Feature Requests: highest priority at top
 ;; 
-;; [ ] Properly create contexts that are missing on the server. (cjwhite)
+;; [ ] Trap 3-levels of TODO tasks and warn the user or just flatten
+;;     the list.  (cjwhite)
 ;;
+;; [ ] Some how indicate that a task has been marked deleted.  Right now
+;;     marking a task deleted puts a property in the drawer, which
+;;     is hidden.  Maybe add a TODO status of DELETED?  Move to a new
+;;     "DELETED" sub-heading?  (cjwhite)
+;;     
 ;; [ ] It'd be great to allow notes to contain asterisks.  Make
 ;;     "[CR]** " the special key?  I use multiple asterisks all the
 ;;     time in notes.  (stophlong)
@@ -202,14 +236,6 @@
 ;; [ ] access to toodledo via proxy would also be good for those
 ;;     inside proxy based firewalls. (stophlong)
 ;; 
-;; [ ] How to deal with sub-tasks? the paid version of toodledo (which
-;;     I don't have) has sub-tasks.  At some point, might try to deal
-;;     with those. (stophlong)
-;; 
-;; [ ] http-post-simple is used to post JSON-encoded data in the body.
-;;     HTTPS is used for getting a token, but couldn't get HTTPS
-;;     working for synchronizing, not sure why. (cjwhite)
-;;
 ;; [ ] Better handling of 'duplicate' tasks -- those modified locally and
 ;;     on the server.  Perhaps tag them with a property and then on sync
 ;;     check for them asking the user to resolve. (cjwhite)
@@ -228,6 +254,29 @@
 ;; -------
 ;;
 ;; 2011-09-07  (cjwhite)
-;;     First release for general distribution based on API 2.0
+;; - First release for general distribution based on API 2.0
 ;;
-
+;; 2011-09-18  (cjwhite)
+;; - (Bug fix) Properly create contexts that are missing on the server. (cjwhite)
+;; - (Bug fix) Eliminate hyphens in the tag/properties that are saved (cjwhite)
+;; - Implemented sub-tasks -- requires pro account subscription (cjwhite)
+;; - Added customization variable `org-toodledo-sync-import-new-tasks'
+;;
+;; 2011-09-24  (cwhite)
+;;
+;; - Use https if pro subscription and patch installed (url-http appears broken
+;;   for POSTs with data and https, at least on my box).  To enable, apply the 
+;;   patch as follows:
+;;       $ cd $emacs_install_dir/lisp/url
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch
+;;   Then in emacs:
+;;       M-x byte-compile-file $emacs_install_dir/lisp/url/url-http.el
+;;   This patch seems to apply cleanly to 23.2 as well, but is not tested there.
+;;   Search below for "bugreport" for more details and bug references.
+;;
+;; - Added `org-toodledo-run-tests' to load and run tests in org-toodledo-test.el.
+;;   This uses the active account, creating/modifying/deleting tasks with the
+;;   prefix 'ORGTOODLEDOTEST'.  All other tasks are ignored, so it *should* operate
+;;   cleanly on an active toodledo account with multiple tasks.  If you run
+;;   this and it does not pass all tests, please let me know  (cjwhite)
+;;   

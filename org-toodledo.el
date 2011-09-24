@@ -1,6 +1,6 @@
 ;;; org-toodledo.el - Toodledo integration for Emacs Org mode
 ;;
-;; (c) 2011 Christopher J. White (cjwhite)
+;; (c) 2011 Christopher J. White (cjwhite -- emacs <at> grierwhite.com)
 ;; GNU General Public License v2 (GNU GPL v2),
 ;; inspired by work from Sacha Chua
 ;;
@@ -78,9 +78,9 @@
 ;;
 ;;   * TASKS 
 ;;     :PROPERTIES:
-;;     :Toodledo-lastsync: 1315343842
-;;     :Toodledo-lastedit_task: 1315337478
-;;     :Toodledo-lastdelete_task: 1314972230
+;;     :ToodledoLastSync: 1315343842
+;;     :ToodledoLastEdit: 1315337478
+;;     :ToodledoLastDelete: 1314972230
 ;;     :END:
 ;;
 ;; This is referred to as the 'base Toodledo entry'.
@@ -94,7 +94,7 @@
 ;; 
 ;;   1. Tasks added to the server since the last sync are downloaded
 ;;      and inserted as sub-headings to the Toodledo base heading (has
-;;      the `Toodledo-lastsync' property)
+;;      the `ToodledoLastSync' property)
 ;;
 ;;   2. Tasks modified on the server are compared against the local
 ;;      copy.  If the local copy was not modified since the last sync,
@@ -151,22 +151,22 @@
 ;; The table lists the possible Toodledo fields and how they are
 ;; mapped to org-mode style tasks:
 ;;
-;; | Toodledo Field | Org-mode                | Comments                                                  |
-;; | id             | Property :Toodledo-ID:  | If present, this task was previoiusly synced              |
-;; | title          | Heading                 | The one line heading minus TODO state, priority and tags  |
-;; | status         | TODO state              | See `org-toodledo-status-to-org-map'                      |
-;; | startdate      | SCHEDULED               |                                                           |
-;; | duedate        | DEADLINE                |                                                           |
-;; | completed      | CLOSED                  | Timestamp when the task was marked completed              |
-;; | repeat         | Repeat interval         |                                                           |
-;; | repeatfrom     |                         |                                                           |
-;; | context        | Tag                     | Context string "Work" becomes a tag :@Work:               |
-;; | modified       | Property :Modified:     | Timestamp when this task was last modifed (set by server) |
-;; | folder         | Property :Folder:       |                                                           |
-;; | goal           | Property :Goal:         |                                                           |
-;; | priority       | Priority                | 3=>A, 2=>B, 1=>C, -1,0 => D                               |
-;; | note           | Body                    | Body of the task minus the properties                     |
-;; | length         | Effort                  |                                                           |
+;; | Toodledo Field | Org-mode               | Comments                                     |
+;; | id             | Property :ToodledoID:  | If present, this task was previoiusly synced |
+;; | title          | Heading                | Heading minus TODO state, priority and tags  |
+;; | status         | TODO state             | See `org-toodledo-status-to-org-map'         |
+;; | startdate      | SCHEDULED              |                                              |
+;; | duedate        | DEADLINE               |                                              |
+;; | completed      | CLOSED                 | Timestamp when the task was marked completed |
+;; | repeat         | Repeat interval        |                                              |
+;; | repeatfrom     |                        |                                              |
+;; | context        | Tag                    | Context string "Work" becomes a tag :@Work:  |
+;; | modified       | Property :Modified:    | Timestamp when last modifed (set by server)  |
+;; | folder         | Property :Folder:      |                                              |
+;; | goal           | Property :Goal:        |                                              |
+;; | priority       | Priority               | 3=>A, 2=>B, 1=>C, -1,0 => D                  |
+;; | note           | Body                   | Body of the task minus the properties        |
+;; | length         | Effort                 |                                              |
 ;;
 ;; TODO STATES
 ;; -----------
@@ -192,6 +192,34 @@
 ;; the task context of :@Phone: when Phone is not a valid context will 
 ;; loose the context.
 ;; 
+;; SUBTASKS
+;; --------
+;;
+;; Sub-tasks are supported by Toodledo with a Pro account subscription.  
+;; When enabled, a 2-level task hierarchy is supported:
+;;
+;;   * TODO Write a best-selling novel
+;;   ** DONE Make an outline
+;;   ** WAITING Call Susan about the contract
+;;   ** TODO Finish writing
+;;   ** TODO Profit
+;;
+;; The parent/child relationship is tracked dynamically at the time
+;; of sync, looking for the next heading up for each task, and if present
+;; and a task, link the task to the parent.
+;;
+;; Bi-directional synchronization is fully supported.
+;;
+;; If the account is not a Pro account, subtasks will still be synced
+;; to the server, but the parent/child relationship is not.  This
+;; yields a flat list of tasks on the server.  Note that the hierarchy
+;; in the org file is still maintained even though not on the server.
+;;
+;; NOTE: A 3-level hierarchy of TODO items will not work and will 
+;; probably cause an error during sync.  It's no problem to use
+;; a much deeper hierarchy of org items, as long as only the last
+;; two are actually TODO items.
+;;
 ;; MISCELLANEOUS NOTES
 ;; -------------------
 ;;
@@ -217,8 +245,14 @@
 ;;
 ;; ** TODO Feature Requests: highest priority at top
 ;; 
-;; [ ] Properly create contexts that are missing on the server. (cjwhite)
+;; [ ] Trap 3-levels of TODO tasks and warn the user or just flatten
+;;     the list.  (cjwhite)
 ;;
+;; [ ] Some how indicate that a task has been marked deleted.  Right now
+;;     marking a task deleted puts a property in the drawer, which
+;;     is hidden.  Maybe add a TODO status of DELETED?  Move to a new
+;;     "DELETED" sub-heading?  (cjwhite)
+;;     
 ;; [ ] It'd be great to allow notes to contain asterisks.  Make
 ;;     "[CR]** " the special key?  I use multiple asterisks all the
 ;;     time in notes.  (stophlong)
@@ -226,14 +260,6 @@
 ;; [ ] access to toodledo via proxy would also be good for those
 ;;     inside proxy based firewalls. (stophlong)
 ;; 
-;; [ ] How to deal with sub-tasks? the paid version of toodledo (which
-;;     I don't have) has sub-tasks.  At some point, might try to deal
-;;     with those. (stophlong)
-;; 
-;; [ ] http-post-simple is used to post JSON-encoded data in the body.
-;;     HTTPS is used for getting a token, but couldn't get HTTPS
-;;     working for synchronizing, not sure why. (cjwhite)
-;;
 ;; [ ] Better handling of 'duplicate' tasks -- those modified locally and
 ;;     on the server.  Perhaps tag them with a property and then on sync
 ;;     check for them asking the user to resolve. (cjwhite)
@@ -252,9 +278,32 @@
 ;; -------
 ;;
 ;; 2011-09-07  (cjwhite)
-;;     First release for general distribution based on API 2.0
+;; - First release for general distribution based on API 2.0
 ;;
-
+;; 2011-09-18  (cjwhite)
+;; - (Bug fix) Properly create contexts that are missing on the server. (cjwhite)
+;; - (Bug fix) Eliminate hyphens in the tag/properties that are saved (cjwhite)
+;; - Implemented sub-tasks -- requires pro account subscription (cjwhite)
+;; - Added customization variable `org-toodledo-sync-import-new-tasks'
+;;
+;; 2011-09-24  (cwhite)
+;;
+;; - Use https if pro subscription and patch installed (url-http appears broken
+;;   for POSTs with data and https, at least on my box).  To enable, apply the 
+;;   patch as follows:
+;;       $ cd $emacs_install_dir/lisp/url
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch
+;;   Then in emacs:
+;;       M-x byte-compile-file $emacs_install_dir/lisp/url/url-http.el
+;;   This patch seems to apply cleanly to 23.2 as well, but is not tested there.
+;;   Search below for "bugreport" for more details and bug references.
+;;
+;; - Added `org-toodledo-run-tests' to load and run tests in org-toodledo-test.el.
+;;   This uses the active account, creating/modifying/deleting tasks with the
+;;   prefix 'ORGTOODLEDOTEST'.  All other tasks are ignored, so it *should* operate
+;;   cleanly on an active toodledo account with multiple tasks.  If you run
+;;   this and it does not pass all tests, please let me know  (cjwhite)
+;;   
 ;;; Code:
 
 (require 'org)
@@ -290,6 +339,13 @@
   :type 'string
   )
 
+(defcustom org-toodledo-sync-import-new-tasks t
+  "If non-nil, import new tasks from the server, otherwise only edits
+to existing tasks from the server are processed."
+  :group 'org-toodledo
+  :type 'boolean
+  )
+
 (defcustom org-toodledo-status-to-org-map
   '(
     ("Active" . "TODO")
@@ -315,6 +371,11 @@
 (defvar org-toodledo-token-expiry nil "Expiry time for authentication token.")
 (defvar org-toodledo-token nil "Authentication token.")
 (defvar org-toodledo-key nil "Authentication key.")
+(defvar org-toodledo-pro nil "Non-nil if Toodledo account is a pro account")
+(defvar org-toodledo-pro-cached nil "Non-nil means pro variable is cached")
+(defvar org-toodledo-test-mode nil "Non-nil used for testing")
+(defvar org-toodledo-sync-message-time 2 "Seconds to pause after displaying sync message")
+(defvar org-toodledo-use-https nil "Use HTTPS for all calls.  This requires pro *and* a patched url-http.el.")
 
 ;; Registered application ID and token for Toodledo API 2.0
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
@@ -324,7 +385,7 @@
   '( 
     ;; Toodledo recongized fields
     "id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" 
-    "startdate" "modified" "folder" "goal" "priority" "note" "length" 
+    "startdate" "modified" "folder" "goal" "priority" "note" "length" "parent"
     ;; org-toodledo only fields
     "sync" "hash")
   "All fields related to a task"
@@ -335,7 +396,7 @@
     ;; Fields that toodled always returns, thus cannot be asked for
     "id" "title" "modified" "completed" 
     ;; org-toodledo only fields
-     "sync" "hash")
+    "sync" "hash")
   "Fields that must not be asked for from the server, either because the server
 returns them automatically, or because they are internal only fields"
   )
@@ -351,13 +412,13 @@ returns them automatically, or because they are internal only fields"
 
 (defconst org-toodledo-hash-fields 
   '( "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "startdate"
-     "folder" "goal" "priority" "note" "length")
+     "folder" "goal" "priority" "note" "length" "parent")
   "Fields that are used to compute the hash of a task for detecting when a task changed."
   )
 
 (defvar org-toodledo-fields-ask
   (remove nil (mapcar (lambda (f) (if (member f org-toodledo-fields-dont-ask) nil f)) org-toodledo-fields))
-  "Fields that can be asked for (fields minus org-toodldeo-fields-dont-ask)"
+  "Fields that can be asked for (fields minus org-toodledo-fields-dont-ask)"
   )
 
 (defvar org-toodledo-fields-send
@@ -382,30 +443,41 @@ returns them automatically, or because they are internal only fields"
 values represent the keys for use in org-toodledo-status-to-org-map"
   )
 
-(defvar org-toodledo-tmp-ref 1 
+(defvar org-toodledo-tmp-ref -1 
   "Temporary ID used to tag new tasks when synced in bulk to the server.  These ids 
 should only be used for the short period of time when a new task is ")
 
+;; There's a bug in url-http that seems to attempt connection reuse
+;; when the connection is not valid.  This seems to only affect https
+;; but just disable if set.
+;;
+;; See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592
+;;
+(when (boundp url-http-inhibit-connection-reuse)
+  (setq url-http-inhibit-connection-reuse t))
 
-(defun org-toodledo-initialize ()
+(defun org-toodledo-initialize (&optional default-heading)
   "Setup current item in an org file with Toodledo tasks.  If not "
   (interactive)
   (when (not (eq major-mode 'org-mode))
     (error "Toodledo initialization must be performed on an org-mode file"))
 
   (save-excursion
-    (if (org-toodledo-find-base-entry t)
+    (if (org-toodledo-goto-base-entry t)
         (message "Org-toodled already initialized")
-      (let (item)
-        (condition-case nil
-            (progn 
-              (org-back-to-heading t)
-              (setq item (read-from-minibuffer "Default heading for Toodledo tasks: " 
-                                               (elt (org-heading-components) 4)))
-              )
-          (error 
-           (setq item (read-from-minibuffer "Default heading for Toodledo tasks: " "TASKS"))))
-
+      (let ((item default-heading)
+            result)
+        (unless item
+          (condition-case nil
+              (progn 
+                (org-back-to-heading t)
+                (setq item (read-from-minibuffer "Default heading for Toodledo tasks: " 
+                                                 (elt (org-heading-components) 4)))
+                )
+            (error 
+             (setq item (read-from-minibuffer "Default heading for Toodledo tasks: " "TASKS"))))
+          )
+        
         (when item
           (goto-char (point-min))
           (unless (re-search-forward (format "^\*+[ \t]* %s" (regexp-quote item)) nil t)
@@ -417,17 +489,30 @@ should only be used for the short period of time when a new task is ")
                   )
               (error "Aborted")))
 
-          (org-entry-put (point) "Toodledo-lastsync" "0")
-          (org-toodledo-sync)
+          (org-entry-put (point) "ToodledoLastSync" "0")
+          (setq result (org-toodledo-sync))
           (goto-char (point-min))
           (re-search-forward (format "^\*+[ \t]* %s" (regexp-quote item)))
           (org-overview)
           (org-content)
           )
+        result
         )
       )
     )
   )
+
+(defun org-toodledo-fixup-tags ()
+  "Fixup tags to eliminate the hyphen, which really shouldn't be used in tag / property names"
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "Toodledo\\(-\\)\\(lastsync\\|ID\\|lastedit_task\\|lastdelete_task\\)" nil t)
+      (let ((str2 (match-string 2)))
+        (replace-match "" nil nil nil 1)
+        (cond
+         ((string= str2 "lastsync") (replace-match "LastSync" nil nil nil 2))
+         ((string= str2 "lastedit_task") (replace-match "LastEdit" nil nil nil 2))
+         ((string= str2 "lastdelete_task") (replace-match "LastDelete" nil nil nil 2)))))))
 
 ;;
 ;; Token / key functions
@@ -489,9 +574,33 @@ retrieved. "
 
 (defun org-toodledo-get-account-info ()
   "Return account information from server."
-  (org-toodledo-convert-xml-result-to-alist
-   (car (org-toodledo-call-method "account/get"))))
+  (setq org-toodledo-use-https nil)
+  (let ((info (org-toodledo-convert-xml-result-to-alist
+               (car (org-toodledo-call-method "account/get")))))
+    (setq org-toodledo-pro (string= "1" (cdr (assoc "pro" info))))
+    (setq org-toodledo-pro-cached t)
 
+    ;; The variable `url-http-inhibit-connection-reuse' was added as
+    ;; part of a patch.  If it is bound, the patch was applied and
+    ;; also includes a fix for adding CRLF at the end of post-data
+    ;;
+    ;; See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931
+    (setq org-toodledo-use-https
+          (and org-toodledo-pro (boundp url-http-inhibit-connection-reuse)))
+    
+    (when org-toodledo-use-https
+      (message "All interaction with toodledo.com will be via HTTPS"))
+    
+    info
+    )
+  )
+
+(defun org-toodledo-pro ()
+  (unless org-toodledo-pro-cached
+    (org-toodledo-get-account-info))
+  org-toodledo-pro
+)
+    
 (defun org-toodledo-get-tasks (&optional params)
   "Retrieve tasks from server using PARAMS.
 Return a list of task alists."
@@ -512,130 +621,324 @@ Return a list of task alists."
     (car (org-toodledo-call-method "tasks/deleted" params))
     'task)))
 
-(defun org-toodledo-sync ()
+;;
+;; Implementation notes on how to subtask support :
+;;
+;; Syncing new tasks to the server is more complex, consider all new tasks:
+;;    * TASKS
+;;    ** TODO Parent
+;;    *** TODO Child1
+;;    *** TODO Child2
+;;    
+;; The current sync order will attempt to create Parent, Child1, and
+;; Child2 all at the same time.  Looking just for "ToodledoID" in a
+;; parent heading will not work because Parent is not assigned an ID
+;; until syncing with the server.
+;;
+;; Modified algorithm:
+;; 
+;;   1. Collect new-child-tasks as a separate set of tasks.  These are
+;;      not all child tasks, just those whose parent is not yet synced
+;;      Since tasks are processed top-down in the buffer, parents are
+;;      guaranteed to be processed before children.  
+;;
+;;        new-child-tasks-alist:
+;;            <child-tmp-ref> => <child-task-def>
+;;
+;;      Keep a map of all children waiting on this parent:
+;;
+;;        new-parent-new-child-alist: 
+;;            <parent-tmp-ref> => '(list <child-tmp-ref> <child-tmp-ref>...)
+;;
+;;   2. Collect new-edit-tasks that were recently modified to have a
+;;      parent task that is new.  
+;;
+;;   3. Create new-tasks first (which will include parent)
+;;   
+;;   4. Create new-child-tasks second, but need to find the newly assigned 
+;;      parent ID
+;;
+;; Change scenarios
+;;
+;; 1. Local changes
+;;    a. Add new parent task, add new child tasks
+;;       - all new-tasks, the parent task will be assigned a tmp ID before children processed
+;;       - children are new, but must wait for parent to get assigned a real ID
+;;    b. Add new child tasks to an existing parent task (parent task *not* modified)
+;;       - the parent task has no changes, child tasks are new and parent looked up by title
+;;       - no hash values involved, all new tasks
+;;    c. User moved existing tasks beneath a new parent task
+;;       - hash value of child will change *after* the new parent task is assigned an id or tmp-ref
+;;    d. Move existing child tasks beneath an existing parent
+;;       - hash value of child will change due to the new relation to the parent
+;;
+;; 2. Remote changes
+;;    a. Receive a new parent task
+;;       - parent task is no different than a regular task
+;;    b. Receive an edit to a task, it has a new parent
+;;       - task hash will change due to parent
+;;       - need to find the parent and move it there
+;;    c. Receive an edit to a child task, making it a normal task (no parent)
+;;       - task hash will change due to parent
+;;       - need to move the task back to the normal new task folder
+;;
+
+(defun org-toodledo-sync (&optional skip-import)
   "Synchronize tasks with the server bidirectionally."
   (interactive)
+  (org-toodledo-fixup-tags)
   (save-excursion
-    (let ((regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
-          (account-info (org-toodledo-get-account-info))
-          (columns-pos (if (and (boundp 'org-columns-begin-marker) org-columns-begin-marker)
-                           (marker-position org-columns-begin-marker) nil))
-          server-edit-tasks
-          server-delete-tasks
-          new-tasks
-          edit-tasks
-          delete-tasks
-          (end nil) ;; Restrict to Toodledo Task heading only?  XXXCJ
-          )
+    (let* ((regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
+           (account-info (org-toodledo-get-account-info))
+           (columns-pos (if (and (boundp 'org-columns-begin-marker) org-columns-begin-marker)
+                            (marker-position org-columns-begin-marker) nil))
+           server-edit-tasks
+           server-delete-tasks
+           new-tasks
+           (new-tasks-count 0)
+           new-child-tasks-alist
+           new-parent-new-child-alist
+           edit-child-tasks-alist
+           new-parent-edit-child-alist
+           edit-tasks
+           delete-tasks
+           tasks-by-title-alist
+           (end nil) ;; Restrict to Toodledo Task heading only?  XXXCJ
+           )
       (when columns-pos
         (org-columns-quit))
 
       ;; Check for edited tasks on the server
-      (org-toodledo-find-base-entry)
-      (let ((local-lastedit-task (or (org-entry-get (point) "Toodledo-lastedit_task") "0")) 
-            (server-lastedit-task (cdr (assoc "lastedit_task" account-info)))
-            params)
-        (when (> (string-to-number server-lastedit-task)
-                 (string-to-number local-lastedit-task))
-          (aput 'params "modafter" local-lastedit-task) ;; limit to tasks edited since last sync
-          (aput 'params "comp" "0")                  ;; only grab completed tasks
-          (setq org-toodledo-last-server-edit-tasks-params params)
-          (setq server-edit-tasks (org-toodledo-get-tasks params))
-          (setq org-toodledo-last-server-edit-tasks server-edit-tasks)
-          (mapc 'org-toodledo-process-task server-edit-tasks)
+      (unless skip-import
+        (org-toodledo-goto-base-entry)
+        (let ((local-lastedit-task (or (org-entry-get (point) "ToodledoLastEdit") "0")) 
+              (server-lastedit-task (cdr (assoc "lastedit_task" account-info)))
+              params)
+          (when (> (string-to-number server-lastedit-task)
+                   (string-to-number local-lastedit-task))
+            (aput 'params "modafter" local-lastedit-task) ;; limit to tasks edited since last sync
+            (aput 'params "comp" "0")                  ;; only grab completed tasks
+            (setq server-edit-tasks (org-toodledo-get-tasks params))
+            (mapc 'org-toodledo-process-task server-edit-tasks)
+            )
           )
-        )
-      
-      ;; Check for deleted tasks on the server
-      (org-toodledo-find-base-entry)
-      (let ((local-lastdelete-task (or (org-entry-get (point) "Toodledo-lastdelete_task") "0")) 
-            (server-lastdelete-task (cdr (assoc "lastdelete_task" account-info)))
-            params)
-        (when (> (string-to-number server-lastdelete-task)
-                 (string-to-number local-lastdelete-task))
-          (aput 'params "after" local-lastdelete-task) ;; limit to tasks deleted since last sync
-          (setq server-delete-tasks (org-toodledo-get-deleted params))
-          (mapc (lambda (task) (org-toodledo-delete-local-task (org-toodledo-task-id task))) server-delete-tasks)
+        
+        ;; Check for deleted tasks on the server
+        (org-toodledo-goto-base-entry)
+        (let ((local-lastdelete-task (or (org-entry-get (point) "ToodledoLastDelete") "0")) 
+              (server-lastdelete-task (cdr (assoc "lastdelete_task" account-info)))
+              params)
+          (when (> (string-to-number server-lastdelete-task)
+                   (string-to-number local-lastdelete-task))
+            (aput 'params "after" local-lastdelete-task) ;; limit to tasks deleted since last sync
+            (setq server-delete-tasks (org-toodledo-get-deleted params))
+            (mapc (lambda (task) (org-toodledo-delete-local-task (org-toodledo-task-id task))) server-delete-tasks)
+            )
           )
         )
 
-
+      ;;
       ;; Iterate overall TODO items in the buffer -- any item matching the todo-regexp
+      ;;
       (goto-char (point-min))
       (while (re-search-forward regexp end t)
+
+        ;; 'task' is the current state of the task at point and is parsed from the buffer
+        ;; after all tasks above this point have been processed.  That means parent
+        ;; tasks either have a toodledoid, or were assigned a tmp-ref
         (let* ((task (org-toodledo-parse-current-task))
                (modified (org-toodledo-task-modified task))
                (sync (org-toodledo-task-sync task))
                (hash (org-entry-get (point) "Hash"))
-               (computed-hash (org-toodledo-compute-hash))
+               (computed-hash (org-toodledo-compute-hash nil task))
                (deleted (org-entry-get (point) "Deleted"))
+
+               ;; Find the parent task, if any -- this is not necessarily the 
+               ;; task linked by parent-id (but is a toodledo task), 
+               ;; this is literally the up-heading parent.  If the parent
+               ;; task is new, it will have been assigned a tmp-ref by the
+               ;; time its put into tasks-by-title-alist
+               ;;
+               ;; This parent-task is the parsed task alist.  It will have either
+               ;; 'id' set if it's an existing task (known by server), or a 'ref'
+               ;; if it is new waiting to be assigned a real id. 
+               ;; 
+               ;; Note -- subtasks require pro account subscription
+               (parent-task (if (org-toodledo-pro)
+                                (cdr (assoc (save-excursion (if (org-up-heading-safe)
+                                                                (elt (org-heading-components) 4)))
+                                            tasks-by-title-alist))))
+               (parent-ref (cdr (assoc "ref" parent-task)))
+               (parent-id (cdr (assoc "id" parent-task)))
                )
           (cond 
            ;; Collect a "new" task
+           ;; 
+           ;; A new task is any task that does not yet have an assigned Toodeldo-ID
            ((null (org-toodledo-task-id task))
             ;; Assign a temporary id, send it to the server as "ref", it will be echoed 
-            ;; back from the server result with a real toodledo-id
-            (let ((tmp-ref (number-to-string (setq org-toodledo-tmp-ref (1+ org-toodledo-tmp-ref))))
+            ;; back from the server result with a real toodledoid.  This tmp ID is saved
+            ;; in the task as the ToodledoID, but is always negative so as not to conflict
+            ;; with Toodledo assigned IDs.
+            (let ((tmp-ref (number-to-string (setq org-toodledo-tmp-ref (1- org-toodledo-tmp-ref))))
                   (new-task (org-toodledo-limit-fields task))
                   )
-              (org-entry-put (point) "Toodledo-tmp-ref" tmp-ref)
+              (org-entry-put (point) "ToodledoID" tmp-ref)
               (aput 'new-task "ref" tmp-ref)
-              (setq new-tasks (append new-tasks (list new-task)))
+              (aput 'tasks-by-title-alist (org-toodledo-task-title task) new-task)
+
+              (cond
+               ;; No parent, not a child task, just a new task
+               ((null parent-task)
+                (aput 'new-task "parent" 0)
+                (setq new-tasks (append new-tasks (list new-task)))
+                )
+
+               ;; New child task, but parent already is synced and has and ID
+               (parent-id
+                (aput 'new-task "parent" parent-id)
+                (setq new-tasks (append new-tasks (list new-task)))
+                )
+               
+               ;; New child task, but parent is also new
+               (parent-ref
+                ;; Save this task in new-child-task-alist for easy lookup later
+                (aput 'new-child-tasks-alist tmp-ref new-task)
+                
+                ;; Track this child as waiting for this parent
+                (aput 'new-parent-new-child-alist
+                      parent-ref (append (cdr (assoc parent-ref new-parent-new-child-alist)) (list tmp-ref)))
+                )
+
+               (t (error "New task has a parent, but parent task has neither a tmp-ref nor ID"))
+               )
+              )
+            )
+           
+           ;; Collect a "delete" task
+           (deleted
+            (setq delete-tasks (append delete-tasks (list (org-toodledo-task-id task))))
+            ;; XXXCJ -- need to handle deletion of tasks that have children
+            ;; This may mean leave the heading around if there are sub-headings that 
+            ;; are not tasks.  
+            )
+           
+           ;; Collect an "edit" task
+           ;;
+           ;; Detected by hash change.  This hash will change if any property 
+           ;; of the task changed, including parent.  Note that if the parent is
+           ;; a new task, the parent is assigned a tmp-ref that is stored in 
+           ;; ToodledoID property of the parent entry.
+           ((not (string= hash computed-hash))
+            (let ((edit-task (org-toodledo-limit-fields task))
+                  (id (org-toodledo-task-id task)))
+              (when (org-toodledo-task-completed task)
+                ;; XXXCJ - make sure completed is handled correctly:
+                ;;   DONE state should set the CLOSED timestamp
+                )
+              
+              (aput 'tasks-by-title-alist (org-toodledo-task-title task) edit-task)
+              
+              (cond
+               ;; No parent, not a child task, just an edit task
+               ((null parent-task)
+                (aput 'edit-task "parent" "0")
+                (setq edit-tasks (append edit-tasks (list edit-task)))
+                )
+
+               ;; Edit task, but parent already is synced and has an assigned Toodledo ID.
+               (parent-id
+                (aput 'edit-task "parent" parent-id)
+                (setq edit-tasks (append edit-tasks (list edit-task)))
+                )
+               
+               ;; Edit task, but parent is new
+               (parent-ref
+                ;; Save this task in edit-child-task-alist for easy lookup later
+                (aput 'edit-child-tasks-alist id edit-task)
+                
+                ;; Track this child as waiting for this parent
+                (aput 'new-parent-edit-child-alist
+                      parent-ref (append (cdr (assoc parent-ref new-parent-edit-child-alist)) (list id)))
+                )
+               
+               (t (error "Edit task has a parent, but parent task has neither a tmp-ref nor ID"))
+               )
               )
             )
 
-           ;; Collect a "delete" task
-           (deleted
-            (setq delete-tasks (append delete-tasks (list (org-toodledo-task-id task)))))
-           
-           ;; Collect an "edit" task
-           ((or (not (string= hash computed-hash))
-                (> (string-to-number modified)
-                   (string-to-number sync)))
-            (when (org-toodledo-task-completed task)
-              ;; XXXCJ - make sure completed is handled correctly:
-              ;;   DONE state should set the CLOSED timestamp
-              )
-            
-            (setq edit-tasks (append edit-tasks 
-                                     (list (org-toodledo-limit-fields task))))
-
+           ;; No action on this task, just save in alist for future reference
+           (t
+            (aput 'tasks-by-title-alist (org-toodledo-task-title task) task)
             )
            )
           )
         )
-
+      
       ;; Issue a single call for new-tasks
-      (when new-tasks
-        (let ((result (org-toodledo-server-add-task
-                       (list (cons "tasks" (json-encode-array new-tasks)))))
-              )
-          (dolist (m (cddar result))
-            (let ((ref (caddr (assoc 'ref m)))
-                  (id (caddr (assoc 'id m)))
-                  (mod (caddr (assoc 'modified m))))
+      (while new-tasks
+        (setq new-tasks-count (+ new-tasks-count (length new-tasks)))
+        (let ((result (org-toodledo-server-add-tasks new-tasks)))
+
+          ;; Reset new-tasks, a second round of new-tasks may be created
+          ;; from new child tasks waiting on this parent
+          (setq new-tasks nil)
+          (dolist (m result)
+            (let ((ref (cdr (assoc "ref" m)))
+                  (id (cdr (assoc "id" m)))
+                  (mod (cdr (assoc "modified" m)))
+                  (parent-id (cdr (assoc "parent" m)))
+                  )
               (if (and ref (not (string= ref ""))
-                       (org-toodledo-find-todo-entry ref nil "Toodledo-tmp-ref"))
+                       (org-toodledo-goto-todo-entry ref))
                   (progn
-                    (org-entry-put (point) "Toodledo-ID" id)
-                    (org-entry-delete (point) "Toodledo-tmp-ref")
+                    (org-entry-put (point) "ToodledoID" id)
                     (org-entry-put (point) "Sync" (format "%d" (float-time)))
                     (org-entry-put (point) "Modified" mod)
                     (org-toodledo-compute-hash t)
                     (message "Successfully synced new task ID %s / ref %s" id ref)
+
+                    ;; Look in new-parent-new-child-alist to see if any new child
+                    ;; tasks are waiting for this parent's id
+                    (dolist (child-tmp-ref (cdr (assoc ref new-parent-new-child-alist)))
+                      (let ((child-task (cdr (assoc child-tmp-ref new-child-tasks-alist))))
+                        (aput 'child-task "parent" id)
+                        (setq new-tasks (append new-tasks (list child-task)))
+                        (adelete 'new-parent-new-child-alist ref)
+                        )
+                      )
+                    
+                    ;; Look in new-parent-new-child-alist to see if any new child
+                    ;; tasks are waiting for this parent's id
+                    (dolist (child-id (cdr (assoc ref new-parent-edit-child-alist)))
+                      (let ((child-task (cdr (assoc child-id edit-child-tasks-alist))))
+                        (aput 'child-task "parent" id)
+                        (setq edit-tasks (append edit-tasks (list child-task)))
+                        (adelete 'new-parent-edit-child-alist ref)
+                        )
+                      )
                     )
-                (message "Failed to update new task with reference %S with task ID %S" ref id))))))
+                (message "Failed to update new task with reference %S with task ID %S" ref id)
+                )
+              )
+            )
+          
+          (when new-parent-new-child-alist
+            (error (format "Orphaned new child tasks never got a parent ID: %S" new-parent-new-child-alist)))
+
+          (when new-parent-edit-child-alist
+            (error (format "Orphaned edit child tasks never got a parent ID: %S" new-parent-edit-child-alist)))
+          )
+        )
       
       ;; Issue a single call for edit-tasks
       (when edit-tasks
-        (let ((result (org-toodledo-server-edit-task
-                       (list (cons "tasks" (json-encode-array edit-tasks)))))
-              )
-          (dolist (m (cddar result))
-            (let ((id (caddr (assoc 'id m)))
-                  (mod (caddr (assoc 'modified m))))
+        (let ((result (org-toodledo-server-edit-tasks edit-tasks)))
+          (dolist (m result)
+            (let ((id (cdr (assoc "id" m)))
+                  (mod (cdr (assoc "modified" m))))
               (if (and id (not (string= id ""))
-                       (org-toodledo-find-todo-entry id nil))
+                       (org-toodledo-goto-todo-entry id nil))
                   (progn
                     (org-entry-put (point) "Sync" (format "%d" (float-time))) ;
                     (org-entry-put (point) "Modified" mod)
@@ -649,56 +952,63 @@ Return a list of task alists."
       
       ;; Issue a single call for delete-tasks
       (when delete-tasks
-        (let ((result (org-toodledo-server-delete-task
-                       (list (cons "tasks" (json-encode-array delete-tasks)))))
-              )
-          (dolist (m (cddar result))
-            (let ((id (caddr m)))
-              (if (and id (not (string= id ""))
-                       (org-toodledo-find-todo-entry id nil))
-                  (progn
-                    (org-back-to-heading t)
-                    (delete-region
-                     (point)
-                     (if (and (end-of-line)
-                              (re-search-forward org-complex-heading-regexp nil t))
-                         (match-beginning 0)
-                       (org-end-of-subtree t t)
-                       (point)))
-                    (message "Successfully deleted task ID %s" id)
-                    )
-                (message "Failed to delete task ID %S" id)))
+        (let ((result (org-toodledo-server-delete-tasks delete-tasks)))
+          (dolist (id result)
+            (if (and id (not (string= id ""))
+                     (org-toodledo-goto-todo-entry id nil))
+                (progn
+                  (org-back-to-heading t)
+                  (delete-region
+                   (point)
+                   (if (and (end-of-line)
+                            (re-search-forward org-complex-heading-regexp nil t))
+                       (match-beginning 0)
+                     (org-end-of-subtree t t)
+                     (point)))
+                  (message "Successfully deleted task ID %s" id)
+                  )
+              (message "Failed to delete task ID %S" id))
             )
           )
         )
       
       ;; Finally, update account info
-      (org-toodledo-find-base-entry)
-      (org-entry-put (point) "Toodledo-lastsync" (format "%.0f" (float-time)))
-      (org-entry-put (point) "Toodledo-lastedit_task" (cdr (assoc "lastedit_task" account-info)))
-      (org-entry-put (point) "Toodledo-lastdelete_task" (cdr (assoc "lastdelete_task" account-info)))
+      (unless skip-import
+        (org-toodledo-goto-base-entry)
 
+        ;; Refresh account-info, as it lastedit/lastdelete may have changed after
+        ;; sending updates to the server
+        (setq account-info (org-toodledo-get-account-info))
+        (org-entry-put (point) "ToodledoLastSync" (format "%.0f" (float-time)))
+        (org-entry-put (point) "ToodledoLastEdit" (cdr (assoc "lastedit_task" account-info)))
+        (org-entry-put (point) "ToodledoLastDelete" (cdr (assoc "lastdelete_task" account-info))))
+      
       (when columns-pos
         (goto-char columns-pos)
         (org-columns))
 
-      (message (concat (format "Sync complete, %d changes: in [e%d d%d] out [n%d e%d d%d]"
-                               (+ (length server-edit-tasks)
-                                  (length server-delete-tasks)
-                                  (length new-tasks)
-                                  (length edit-tasks)
-                                  (length delete-tasks))
-                               (length server-edit-tasks)
-                               (length server-delete-tasks)
-                               (length new-tasks)
-                               (length edit-tasks)
-                               (length delete-tasks))))
-      (when (> 0 (+ (length server-edit-tasks)
-                                  (length server-delete-tasks)
-                                  (length new-tasks)
-                                  (length edit-tasks)
-                                  (length delete-tasks)))
-        (sleep-for 1))
+      (let* ((imod (length server-edit-tasks))
+             (idel (length server-delete-tasks))
+             (onew new-tasks-count)
+             (omod (length edit-tasks))
+             (odel (length delete-tasks))
+             (tot (+ imod idel onew omod odel)))
+        
+        (if (= 0 tot)
+            (message "Sync complete, no changes")
+          (message (concat (format "Sync complete, %d changes: " tot)
+                           (if (> (+ imod idel) 0) 
+                               (concat "recv " 
+                                       (if (> imod 0) (format "%d mod " imod))
+                                       (if (> idel 0) (format "%d del " idel))
+                                       (if (> (+ onew omod odel) 0) ", ")))
+                           (if (> (+ onew omod odel) 0) 
+                               (concat "sent " 
+                                       (if (> onew 0) (format "%d new " onew))
+                                       (if (> omod 0) (format "%d mod " omod))
+                                       (if (> odel 0) (format "%d del " odel))))))
+          (sleep-for org-toodledo-sync-message-time))
+        (list tot imod idel onew omod odel))
       )
     )
   )
@@ -715,19 +1025,18 @@ an alist of the task fields."
              (priority (match-string-no-properties 3))
              (title (match-string-no-properties 4))
              (tags (match-string-no-properties 5))
-             (id (org-entry-get (point) "Toodledo-ID"))
+             (id (org-entry-get (point) "ToodledoID"))
              (deadline (org-entry-get nil "DEADLINE"))
              (scheduled (org-entry-get nil "SCHEDULED"))
              (closed (org-entry-get nil "CLOSED"))
              context)
-        ;; (add-to-list 'info (cons "title" (match-string-no-properties 1)))
-        (if id (add-to-list 'info (cons "id" id)))
+
         (if (and (string= status "DONE")
                  (null closed))
             (progn
               (org-add-planning-info 'closed (org-current-effective-time))
               (setq closed (org-entry-get nil "CLOSED"))))
-          
+        
         (when tags
           (setq tags
                 (delq nil
@@ -761,23 +1070,33 @@ an alist of the task fields."
                (cons "note"
                      (org-toodledo-entry-note))))
         (when (org-entry-get nil "FOLDER")
-          (setq info (cons (cons "folder" (org-toodledo-folder-to-id (org-entry-get nil "FOLDER"))) info)))
+          (aput 'info "folder" (org-toodledo-folder-to-id (org-entry-get nil "FOLDER"))))
+
         (when (org-entry-get nil "GOAL")
-          (setq info (cons (cons "goal" (org-toodledo-goal-to-id (org-entry-get nil "GOAL"))) info)))
+          (aput 'info "goal" (org-toodledo-goal-to-id (org-entry-get nil "GOAL"))))
+        
         (when deadline
-          (setq info (cons (cons "duedate" 
-                                 (format "%.0f" (org-time-string-to-seconds deadline))) info))
+          (aput 'info "duedate" (format "%.0f" (org-time-string-to-seconds deadline)))
           (let ((repeat (org-toodledo-org-to-repeat deadline)))
             (when repeat
-              (setq info (cons (cons "repeat" (car repeat)) info))
-              (setq info (cons (cons "repeatfrom" (cdr repeat)) info))
+              (aput 'info "repeat" (car repeat))
+              (aput 'info "repeatfrom" (cdr repeat))
               )
             )
           )
         (when scheduled
-          (setq info (cons (cons "startdate"
-                                 (format "%.0f" (org-time-string-to-seconds scheduled))) info)))
+          (aput 'info "startdate" (format "%.0f" (org-time-string-to-seconds scheduled))))
+
+        (aput 'info "parent" (org-toodledo-get-parent-id))
+        
         info))))
+
+(defun org-toodledo-get-parent-id ()
+  "Return the ToodledoID of the immediate parent task.  Requires Pro account subscription"
+  (save-excursion 
+    (or (if (and (org-toodledo-pro) (org-up-heading-safe))
+            (org-entry-get nil "ToodledoID")) 
+        "0")))
 
 (defun org-toodledo-process-task (task)
   "Process TASK definition, comparing with all currently defined tasks.
@@ -785,7 +1104,7 @@ an alist of the task fields."
   - if TASK is known but local copy is not modified, update the local task
   - if TASK is known and local copy was modified, insert TASK as a duplicate"
   (save-excursion
-    (if (org-toodledo-find-todo-entry (org-toodledo-task-id task) t)
+    (if (org-toodledo-goto-todo-entry (org-toodledo-task-id task) t)
 
         ;; Found this entry already -- check local modified time vs server modified time
         (let* ((server-modified (org-toodledo-task-modified task))
@@ -796,25 +1115,21 @@ an alist of the task fields."
                (touched (or (not (string= hash computed-hash))
                             (> (string-to-number local-modified)
                                (string-to-number local-lastsync))))
+               (level (elt (org-heading-components) 0))
                )
           (cond
 
            ;; Not touched locally, and server did modify it; delete and recreate
            ((and (not touched) 
                  (> (string-to-number server-modified) (string-to-number local-modified)))
-            (delete-region (progn (org-back-to-heading t) (point))
-                           (progn (goto-char (match-end 0))
-                                  (if (re-search-forward org-complex-heading-regexp nil t)
-                                      (goto-char (match-beginning 0))
-                                    (org-end-of-subtree))))
-            (org-toodledo-insert-new-task task (point))
+            (org-toodledo-insert-new-task task t t)
             )
            
            ((and touched
                  (> (string-to-number server-modified) (string-to-number local-modified)))
             (message "Task %s was modified locally and on the server, both are saved" 
                      (org-toodledo-task-id task))
-            (org-toodledo-insert-new-task task (point))
+            (org-toodledo-insert-new-task task t)
             ;; XXXCJ - how to communicate this "duplicate" back to the user?
             ;;   - on sync, give user a number of "dups"?
             ;;   - add a property or a tag indicating its a dup?
@@ -825,93 +1140,148 @@ an alist of the task fields."
           )
 
       ;; Not found, add as new
-      (org-toodledo-insert-new-task task)
+      (if (and org-toodledo-sync-import-new-tasks
+               (or (not org-toodledo-test-mode)
+                   (string-match "ORGTOODLEDOTEST" (org-toodledo-task-title task))))
+          (org-toodledo-insert-new-task task))
       )
     )
   )
 
-(defun org-toodledo-insert-new-task (task &optional pos heading)
+;;
+;; Contexts for inserting a task, and where to put it:
+;;
+;;   1) Brand new task pulled in from server
+;;
+;;      - if a parent task is known, put it as a child
+;;        - level computed as parent+1
+;;
+;;      - if no parent, add to the end of the base-entry
+;;
+;;   2) Edit of an existing task, AT-POINT is non-nil and point is at
+;;      the task to edit, REPLACE is non-nil
+;;
+;;      - parent task may be new, put it as a child, but don't move 
+;;        it if the existing task was already a proper child
+;;        - level computed as parent+1
+;;
+;;      - else, put it in the same place as the existing task
+;;        - level should be taken from the old task
+;; 
+;;   3) Duplicate of an existing task, AT-POINT is non-nil and point
+;;      is at the task to edit REPLACE is nil
+;;
+;;      - parent task may be new, put it as a child
+;;        - level computed as parent+1
+;;
+;;      - else, put it in the same place as the existing task
+;;        - level should be taken from the old task
+;;
+(defun org-toodledo-insert-new-task (task &optional at-point replace)
   (save-excursion
-    (let ((heading-pos (if heading (org-find-exact-headline-in-buffer heading))))
-      (if heading-pos
-          (goto-char heading-pos)
-        (org-toodledo-find-base-entry)
-        (org-back-to-heading t)
-        )
-      )
     
-    (let* ((components (org-heading-components))
-           (level (1+ (elt components 0))))
-      (if pos 
-          (goto-char pos)
-        (org-forward-same-level 1 t))
-      (let* ((repeat (org-toodledo-repeat-to-org 
-                      (org-toodledo-task-repeat task) (org-toodledo-task-repeatfrom task)))
-             (priority (org-toodledo-task-priority task))
-             (context (org-toodledo-task-context task))
-             (note (org-toodledo-task-note task))
-             (duedate (org-toodledo-task-duedate task))
-             (startdate (org-toodledo-task-startdate task))
-             )
-        (insert (make-string (or level 2) ?*) " " )
-        (setq pos (point-marker))
-        (insert (concat
-                 (org-toodledo-task-status-to-org task) " "
-                 (cond
-                  ((equal priority "-1") "[#D] ") 
-                  ((equal priority "0")  "[#D] ")
-                  ((equal priority "1")  "[#C] ") 
-                  ((equal priority "2")  "[#B] ") 
-                  ((equal priority "3")  "[#A] "))
-                 (org-toodledo-task-title task)
-                 (if (and context (not (equal context "0")))
-                     (concat " :@" (org-toodledo-id-to-context context) ":") 
-                   "")
-                 "\n"))
-        
-        ;; note => becomes the task textual contents
-        (if note
-            (insert note "\n"))
+    (let* ((repeat (org-toodledo-repeat-to-org 
+                    (org-toodledo-task-repeat task) (org-toodledo-task-repeatfrom task)))
+           (priority (org-toodledo-task-priority task))
+           (context (org-toodledo-task-context task))
+           (note (org-toodledo-task-note task))
+           (duedate (org-toodledo-task-duedate task))
+           (startdate (org-toodledo-task-startdate task))
+           (parent (org-toodledo-task-parent task))
+           (old-parent (if at-point (org-toodledo-get-parent-id)))
+           (level (if at-point (elt (org-heading-components) 0)))
+           pos
+           )
 
-        ;; duedate => "DEADLINE: <2011-08-21 Sun>" 
-        ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
-        (if (and duedate
-                 (not (<= (string-to-number duedate) 0)))    
-            (setq duedate (concat org-deadline-string " "
-                                  (org-toodledo-format-date duedate repeat)))
-          (setq duedate nil))
-        
-        ;; startdate => "SCHEDULED: <2011-08-21 Sun>" 
-        ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
-        (if (and startdate
-                 (not (<= (string-to-number startdate) 0)))
-            (setq startdate (concat (make-string (if duedate 1 (1+ (or level 2))) ? )
-                                    org-scheduled-string " "
-                                    (org-toodledo-format-date startdate repeat)))
-          (setq startdate nil))
-        
-        (when (or duedate startdate)
-          (insert (make-string (1+ (or level 2)) ? ))
-          (if duedate (insert duedate))
-          (if (and duedate startdate) (insert " "))
-          (if startdate (insert startdate))
-          (insert "\n"))
-
-        ;; create a properties drawer for all details
-        (goto-char pos)
-        (org-entry-put (point) "Toodledo-ID" (org-toodledo-task-id task))
-        (org-entry-put (point) "Modified" (org-toodledo-task-modified task))
-        (if (and (not (equal (org-toodledo-task-folder task) "0"))
-                 (not (equal (org-toodledo-task-folder task) "")))
-            (org-entry-put (point) "Folder" (car (rassoc (org-toodledo-task-folder task) org-toodledo-folders))))
-        (if (and (not (equal (org-toodledo-task-goal task) "0"))
-                 (not (equal (org-toodledo-task-goal task) "")))
-            (org-entry-put (point) "Goal" (car (rassoc (org-toodledo-task-goal task) org-toodledo-folders))))
-        (org-entry-put (point) "Sync" (format "%d" (float-time (current-time))))
-        (org-entry-put (point) "Effort" (org-toodledo-task-length task))
-
-        (org-toodledo-compute-hash t)
+      (when replace
+        (delete-region (progn (org-back-to-heading t) (point))
+                       (progn (goto-char (match-end 0))
+                              (if (re-search-forward org-complex-heading-regexp nil t)
+                                  (goto-char (match-beginning 0))
+                                (org-end-of-subtree t t)))))
+      
+      (cond
+       ;; Always put this task as a direct child if parent is present
+       ((and parent (not (string= parent "0")))
+        ;; ...but only move if the parent changed!
+        (when (not (string= parent old-parent))
+          (org-toodledo-goto-todo-entry parent)
+          (setq level (1+ (elt (org-heading-components) 0)))
+          (org-end-of-subtree t t)
+          )
         )
+       
+       ((or 
+         ;; Old parent set, new parent cleared
+         (and old-parent (not (string= old-parent "0"))
+              (or (null parent) (string= parent "0")))
+         ;; or brand new task
+         (not at-point))
+        
+        (org-toodledo-goto-base-entry)
+        (setq level (1+ (elt (org-heading-components) 0)))
+        (org-end-of-subtree t t)
+        )
+       )
+    
+      (insert (make-string (or level 2) ?*) " " )
+      (setq pos (point-marker))
+      (insert (concat
+               (org-toodledo-task-status-to-org task) " "
+               (cond
+                ((equal priority "-1") "[#D] ") 
+                ((equal priority "0")  "[#D] ")
+                ((equal priority "1")  "[#C] ") 
+                ((equal priority "2")  "[#B] ") 
+                ((equal priority "3")  "[#A] "))
+               (org-toodledo-task-title task)
+               (if (and context (not (equal context "0")))
+                   (concat " :@" (org-toodledo-id-to-context context) ":") 
+                 "")
+               "\n"))
+      
+      ;; note => becomes the task textual contents
+      (if note
+          (insert note "\n"))
+
+      ;; duedate => "DEADLINE: <2011-08-21 Sun>" 
+      ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
+      (if (and duedate
+               (not (<= (string-to-number duedate) 0)))    
+          (setq duedate (concat org-deadline-string " "
+                                (org-toodledo-format-date duedate repeat)))
+        (setq duedate nil))
+      
+      ;; startdate => "SCHEDULED: <2011-08-21 Sun>" 
+      ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
+      (if (and startdate
+               (not (<= (string-to-number startdate) 0)))
+          (setq startdate (concat (make-string (if duedate 1 (1+ (or level 2))) ? )
+                                  org-scheduled-string " "
+                                  (org-toodledo-format-date startdate repeat)))
+        (setq startdate nil))
+      
+      (when (or duedate startdate)
+        (insert (make-string (1+ (or level 2)) ? ))
+        (if duedate (insert duedate))
+        (if (and duedate startdate) (insert " "))
+        (if startdate (insert startdate))
+        (insert "\n"))
+
+      ;; create a properties drawer for all details
+      (goto-char pos)
+      (org-entry-put (point) "ToodledoID" (org-toodledo-task-id task))
+      (org-entry-put (point) "Modified" (org-toodledo-task-modified task))
+      (if (and (not (equal (org-toodledo-task-folder task) "0"))
+               (not (equal (org-toodledo-task-folder task) "")))
+          (org-entry-put (point) "Folder" (car (rassoc (org-toodledo-task-folder task) org-toodledo-folders))))
+      (if (and (not (equal (org-toodledo-task-goal task) "0"))
+               (not (equal (org-toodledo-task-goal task) "")))
+          (org-entry-put (point) "Goal" (car (rassoc (org-toodledo-task-goal task) org-toodledo-goals))))
+      (org-entry-put (point) "Sync" (format "%d" (float-time (current-time))))
+      (org-entry-put (point) "Effort" (org-toodledo-task-length task))
+
+      (org-toodledo-compute-hash t)
       )
     )
   )
@@ -924,7 +1294,7 @@ notified that a task on th server was deleted.
 In most cases org-toodledo-mark-task-deleted is more appropriate."
 
   (if (and id (not (string= id ""))
-           (org-toodledo-find-todo-entry id t))
+           (org-toodledo-goto-todo-entry id t))
       (progn
         (org-back-to-heading t)
         (delete-region
@@ -998,7 +1368,7 @@ and from the local org file on the next sync"
                    (point)
                    (if (re-search-forward org-complex-heading-regexp nil t)
                        (match-beginning 0)
-                     (org-end-of-subtree)))))
+                     (org-end-of-subtree t t)))))
         (with-temp-buffer
           (insert text)
 
@@ -1153,33 +1523,51 @@ as a Toodledo style string.  Return nil if STRING has no repeat information"
 ;; Finding TODO tasks
 ;;
 
-(defun org-toodledo-find-todo-entry (id &optional noerror prop)
+(defun org-toodledo-find-todo-entry (id &optional noerror prop pos)
   "Find entry with property PROP equal to ID.  If PROP is not specified, defaults
-to Toodledo-ID"
-  (goto-char (point-min))
-  (unless prop (setq prop "Toodledo-ID"))
-  (if (re-search-forward (concat "^[ \t]*:" prop ":[ \t]*" id) nil noerror)
-      (org-back-to-heading t)
-    nil)
-  )
+to ToodledoID.  If POS is t, return position, otherwise a marker."
+  (save-excursion 
+    (goto-char (point-min))
+    (unless prop (setq prop "ToodledoID"))
+    (if (re-search-forward (concat "^[ \t]*:" prop ":[ \t]*" id) nil noerror)
+        (progn (org-back-to-heading t)
+               (if pos (point) (point-marker)))
+      nil)))
 
-(defun org-toodledo-find-base-entry (&optional noerror)
-  "Find base entry with 'Toodledo-lastsync' property."
-  (goto-char (point-min))
-  (if (re-search-forward "^[ \t]*:Toodledo-lastsync:" nil noerror)
-      (org-back-to-heading t)
-    nil )
-  )
+(defun org-toodledo-goto-todo-entry (id &optional noerror prop)
+  "Find and goto entry with property PROP equal to ID.  If PROP is not specified, defaults
+to ToodledoID"
+  (let ((pos (org-toodledo-find-todo-entry id noerror prop t)))
+    (when pos
+      (goto-char pos))))
+
+(defun org-toodledo-find-base-entry (&optional noerror pos)
+  "Find base entry with 'ToodledoLastSync' property.  If POS is t, 
+return position, otherwise a marker."
+  (save-excursion
+    (goto-char (point-min))
+    (if (re-search-forward "^[ \t]*:ToodledoLastSync:" nil noerror)
+        (progn 
+          (org-back-to-heading t)
+          (if pos (point) (point-marker)))
+      nil)))
+
+(defun org-toodledo-goto-base-entry (&optional noerror)
+  "Find and goto base entry with 'ToodledoLastSync' property."
+  (let ((pos (org-toodledo-find-base-entry t t)))
+    (when pos (goto-char pos))))
 
 ;;
 ;; Hash Function
 ;;
-(defun org-toodledo-compute-hash (&optional update)
+(defun org-toodledo-compute-hash (&optional update task)
   "Compute an md5 hash of all user modifyable fields of the current task."
-  (let* ((task (org-toodledo-parse-current-task))
-         (text (mapconcat (lambda (field) (cdr (assoc field task))) org-toodledo-hash-fields ""))
-         hash)
-    (setq hash (md5 text))
+  (if (and task update)
+      (error "Cannot update a task that was passed as an argument"))
+
+  (unless task (setq task (org-toodledo-parse-current-task)))
+  (let* ((text (mapconcat (lambda (field) (cdr (assoc field task))) org-toodledo-hash-fields ""))
+         (hash (md5 text)))
     ;;(message "org-toodledo-compute-hash: %s from %s" hash text)
     (when update
       (org-entry-put (point) "Hash" hash))
@@ -1212,16 +1600,51 @@ See org-toodledo-sync-on-save."
 ;; Miscellaneous
 ;;
 
-(defmacro org-toodledo-defun (function-name api-name description)
-  `(defun ,function-name (params)
-     ,description
-     (org-toodledo-call-method ,api-name params)))
+(defun org-toodledo-server-add-tasks (tasks)
+  "Add TASKS"
+  (org-toodledo-server-addedit-tasks "tasks/add" tasks))
 
-(org-toodledo-defun org-toodledo-server-add-task "tasks/add" "Add task with PARAMS.")
-(org-toodledo-defun org-toodledo-server-edit-task "tasks/edit" "Edit task with PARAMS.")
-(org-toodledo-defun org-toodledo-server-delete-task "tasks/delete" "Delete task with PARAMS.")
+(defun org-toodledo-server-edit-tasks (tasks)
+  "Edit TASKS"
+  (org-toodledo-server-addedit-tasks "tasks/edit" tasks))
 
-(defun org-toodledo-call-method (method-name &optional params)
+(defun org-toodledo-parse-tasks-xml (xmlresult)
+  "Parse the XMLRESULT into a list of task alists of fields."
+  (mapcar 
+   (lambda (m)
+     (mapcar (lambda (cell)
+               (cons (symbol-name (car cell)) (caddr cell))) (cddr m)))
+   (cddar xmlresult)
+   )
+  )
+
+(defun org-toodledo-server-addedit-tasks (method tasks)
+  "Add/edit TASKS, a list of alists of task fields to set.  This returns 
+a list of alists of fields returned from the server."
+  (org-toodledo-mapsublist 
+   (lambda (partial-tasks)
+     (let (params)
+       (aput 'params "tasks" (json-encode-array partial-tasks))
+       (aput 'params "fields" "parent")
+       (org-toodledo-parse-tasks-xml (org-toodledo-call-method method params))))
+   tasks 50)
+  )
+  
+(defun org-toodledo-server-delete-tasks (taskids)
+  "Delete TASKIDS, a list of task ids to delete.  Returns a list of results."
+  (org-toodledo-mapsublist
+   (lambda (partial-taskids)
+     (let (params)
+       (aput 'params "tasks" (json-encode-array partial-taskids))
+       (mapcar 
+        (lambda (m) (caddr m))
+        (cddar (org-toodledo-call-method "tasks/delete" params))))
+     )
+   taskids 50)
+  )
+
+
+(defun org-toodledo-call-method (method-name &optional params dont-retry)
   "Call METHOD-NAME with PARAMS and return the parsed XML."
 
   (aput 'params "unix" (cons "1" 'plain))
@@ -1230,20 +1653,29 @@ See org-toodledo-sync-on-save."
 
   ;; Convert "unix" to 'unix
   (setq params (mapcar (lambda (e) 
-                       (let ((key (intern (car e)))
-                             (value (cdr e)))
-                         (when (listp value)
-                           (setq value (car value)))
-                         (cons key value))) params))
+                         (let ((key (intern (car e)))
+                               (value (cdr e)))
+                           (when (listp value)
+                             (setq value (car value)))
+                           (cons key value))) params))
 
-  (let ((response (http-post-simple 
-                   (concat  "http://api.toodledo.com/2/" method-name ".php")
-                   params)))
-    (if (not (eq 200 (caddr response)))
-        (error (concat "Call to " method-name " failed"))
-      (with-temp-buffer
-        (insert (car response))
-        (xml-parse-region (point-min) (point-max))))))
+  (let* ((response (http-post-simple 
+                    (concat  (if org-toodledo-use-https "https" "http")
+                             "://api.toodledo.com/2/" method-name ".php")
+                    params))
+         parsed-response)
+    (with-temp-buffer
+      (insert (car response))
+      (setq parsed-response (xml-parse-region (point-min) (point-max))))
+
+    (when (eq 'error (caar parsed-response))
+      (let ((msg (caddar parsed-response)))
+        (if (and (string= msg "Invalid key") (not dont-retry))
+            (progn 
+              (setq org-toodledo-token nil)
+              (org-toodledo-call-method method-name params t))
+          (error (format "Call to %s failed: %s" method-name (caddar parsed-response))))))
+    parsed-response))
 
 (defmacro org-toodledo-make-lookup-function (name)
   "Create a lookup function and caching functions for NAME.
@@ -1280,13 +1712,16 @@ Reload if FORCE is non-nil.")
               (let ((result
                      (org-toodledo-call-method
                       ,add-method
-                      (list (cons "title" item)))))
-                (if (eq (caar result) 'added)
-                    (setq ,(intern cache-var)
-                          (cons (cons item
-                                      (elt (car result) 2))
-                                ,(intern cache-var))
-                          lookups ,(intern cache-var)))))
+                      (list (cons "name" item)))))
+                (if (eq (caar result) 'error)
+                    (error (format "Failed to add new %s: %s" ,name item))
+                  (setq ,(intern cache-var)
+                        (cons (cons item
+                                    (caddar (xml-get-children 
+                                             (car (xml-get-children (car result) (quote ,(intern name))))
+                                             'id)))
+                              ,(intern cache-var))
+                        lookups ,(intern cache-var)))))
           (cdr (assoc item lookups))))
      `(defun ,(intern (concat "org-toodledo-id-to-" name)) (id) 
         "Return name for context by ID."
@@ -1311,5 +1746,58 @@ Reload if FORCE is non-nil.")
            (if (listp item)
                (cons (symbol-name (car item)) (elt item 2))))
          (xml-node-children (delete "\n\t" info)))))
+
+(defun org-toodledo-refile-current-task (marker)
+  (let (level)
+    (org-cut-subtree)
+    (goto-char marker)
+    (setq level (org-get-valid-level (funcall outline-level) 1))
+    (or (save-excursion (org-get-next-sibling))
+        (org-end-of-subtree t t)
+        (point-max))
+    (org-paste-subtree level)
+    )
+  )
+
+(defun org-toodledo-refile-current-task-to-heading (heading)
+  (let ((marker (org-find-exact-headline-in-buffer heading)))
+    (if marker
+        (org-toodledo-refile-current-task marker)
+      (error (format "No such heading %s" heading)))))
+
+(defun org-toodledo-refile-current-task-to-id (id)
+  (let ((marker (org-toodledo-find-todo-entry id)))
+    (if marker
+        (org-toodledo-refile-current-task marker)
+      (error (format "No such task %s" id)))))
+
+(defun org-toodledo-sublist (list from &optional to)
+  "Return a sublist of LIST, from FROM to TO.
+If END is omitted, it defaults to the length of the sequence.
+Counting starts at 0. Like `subseq' and `substring' but solely for
+lists."
+  ;; Taken from http://osdir.com/ml/help-gnu-emacs-gnu/2009-11/msg00484.html
+  (let ((start (nthcdr from list))) ;start reference
+    (if to (butlast start
+                    (- (+ from (length start)) ;if extract list at the end this makes it much faster
+                       to))
+      start)))
+
+(defun org-toodledo-mapsublist (function list step)
+  (let ((len (length list))
+        result)
+    (do ((offset 0 (+ step offset))) ((> offset len) nil)
+      (let ((pr (funcall function (org-toodledo-sublist list offset (+ offset step)))))
+        (setq result (append result pr))))
+    result
+    )
+  )
+
+(defun org-toodledo-run-tests ()
+  "Run org-toodledo-test suite"
+  (interactive)
+  (require 'org-toodledo-test)
+  (org-toodledo-test)
+)
 
 (provide 'org-toodledo)
