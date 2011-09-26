@@ -262,7 +262,7 @@
 ;; - Implemented sub-tasks -- requires pro account subscription (cjwhite)
 ;; - Added customization variable `org-toodledo-sync-import-new-tasks'
 ;;
-;; 2011-09-24  (cwhite)
+;; 2011-09-24  (cjwhite)
 ;;
 ;; - Use https if pro subscription and patch installed (url-http appears broken
 ;;   for POSTs with data and https, at least on my box).  To enable, apply the 
@@ -280,3 +280,7 @@
 ;;   cleanly on an active toodledo account with multiple tasks.  If you run
 ;;   this and it does not pass all tests, please let me know  (cjwhite)
 ;;   
+;; 2011-09-26  (cjwhite)
+;; - Bug fix for checking boundp (myuhe)
+;; - Support importing utf-8 encoded titles (myuhe)
+;;

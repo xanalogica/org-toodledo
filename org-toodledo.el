@@ -286,7 +286,7 @@
 ;; - Implemented sub-tasks -- requires pro account subscription (cjwhite)
 ;; - Added customization variable `org-toodledo-sync-import-new-tasks'
 ;;
-;; 2011-09-24  (cwhite)
+;; 2011-09-24  (cjwhite)
 ;;
 ;; - Use https if pro subscription and patch installed (url-http appears broken
 ;;   for POSTs with data and https, at least on my box).  To enable, apply the 
@@ -304,6 +304,10 @@
 ;;   cleanly on an active toodledo account with multiple tasks.  If you run
 ;;   this and it does not pass all tests, please let me know  (cjwhite)
 ;;   
+;; 2011-09-26  (cjwhite)
+;; - Bug fix for checking boundp (myuhe)
+;; - Support importing utf-8 encoded titles (myuhe)
+;;
 ;;; Code:
 
 (require 'org)
@@ -453,7 +457,7 @@ should only be used for the short period of time when a new task is ")
 ;;
 ;; See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592
 ;;
-(when (boundp url-http-inhibit-connection-reuse)
+(when (boundp 'url-http-inhibit-connection-reuse)
   (setq url-http-inhibit-connection-reuse t))
 
 (defun org-toodledo-initialize (&optional default-heading)
@@ -586,7 +590,7 @@ retrieved. "
     ;;
     ;; See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931
     (setq org-toodledo-use-https
-          (and org-toodledo-pro (boundp url-http-inhibit-connection-reuse)))
+          (and org-toodledo-pro (boundp 'url-http-inhibit-connection-reuse)))
     
     (when org-toodledo-use-https
       (message "All interaction with toodledo.com will be via HTTPS"))
@@ -1234,7 +1238,7 @@ an alist of the task fields."
                 ((equal priority "1")  "[#C] ") 
                 ((equal priority "2")  "[#B] ") 
                 ((equal priority "3")  "[#A] "))
-               (org-toodledo-task-title task)
+               (decode-coding-string (org-toodledo-task-title task) 'utf-8)
                (if (and context (not (equal context "0")))
                    (concat " :@" (org-toodledo-id-to-context context) ":") 
                  "")
