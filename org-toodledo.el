@@ -306,7 +306,8 @@
 ;;   
 ;; 2011-09-26  (cjwhite)
 ;; - Bug fix for checking boundp (myuhe)
-;; - Support importing utf-8 encoded titles (myuhe)
+;; - Support special chars (verified titles/notes) (myuhe)
+;; - Added `org-toodledo-inhibit-https' to disable https
 ;;
 ;;; Code:
 
@@ -368,6 +369,12 @@ to existing tasks from the server are processed."
   :group 'org-toodledo
   :type '(alist :key-type string :value-type string)
   )
+
+(defcustom org-toodledo-inhibit-https nil 
+  "Set to t to inhibit the use of HTTPS even if it's available"
+  :group 'org-toodledo
+  :type 'boolean
+)
 
 ;;
 ;; Internal variables for tracking org-toodledo state
@@ -590,7 +597,10 @@ retrieved. "
     ;;
     ;; See http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931
     (setq org-toodledo-use-https
-          (and org-toodledo-pro (boundp 'url-http-inhibit-connection-reuse)))
+          (and org-toodledo-pro 
+               (boundp 'url-http-inhibit-connection-reuse)
+               (not org-toodledo-inhibit-https)
+               ))
     
     (when org-toodledo-use-https
       (message "All interaction with toodledo.com will be via HTTPS"))
@@ -608,7 +618,7 @@ retrieved. "
 (defun org-toodledo-get-tasks (&optional params)
   "Retrieve tasks from server using PARAMS.
 Return a list of task alists."
-  (aput 'params "fields" (cons (mapconcat 'identity org-toodledo-fields-ask ",") 'plain))
+  (aput 'params "fields" (mapconcat 'identity org-toodledo-fields-ask ","))
   
   (mapcar
    'org-toodledo-convert-xml-result-to-alist
@@ -1238,7 +1248,7 @@ an alist of the task fields."
                 ((equal priority "1")  "[#C] ") 
                 ((equal priority "2")  "[#B] ") 
                 ((equal priority "3")  "[#A] "))
-               (decode-coding-string (org-toodledo-task-title task) 'utf-8)
+               (org-toodledo-task-title task)
                (if (and context (not (equal context "0")))
                    (concat " :@" (org-toodledo-id-to-context context) ":") 
                  "")
@@ -1651,35 +1661,37 @@ a list of alists of fields returned from the server."
 (defun org-toodledo-call-method (method-name &optional params dont-retry)
   "Call METHOD-NAME with PARAMS and return the parsed XML."
 
-  (aput 'params "unix" (cons "1" 'plain))
-  (aput 'params "key" (cons (org-toodledo-key) 'plain))
-  (aput 'params "f" "xml")
-
-  ;; Convert "unix" to 'unix
-  (setq params (mapcar (lambda (e) 
-                         (let ((key (intern (car e)))
-                               (value (cdr e)))
-                           (when (listp value)
-                             (setq value (car value)))
-                           (cons key value))) params))
-
-  (let* ((response (http-post-simple 
-                    (concat  (if org-toodledo-use-https "https" "http")
-                             "://api.toodledo.com/2/" method-name ".php")
-                    params))
-         parsed-response)
-    (with-temp-buffer
-      (insert (car response))
-      (setq parsed-response (xml-parse-region (point-min) (point-max))))
-
-    (when (eq 'error (caar parsed-response))
-      (let ((msg (caddar parsed-response)))
-        (if (and (string= msg "Invalid key") (not dont-retry))
-            (progn 
-              (setq org-toodledo-token nil)
-              (org-toodledo-call-method method-name params t))
-          (error (format "Call to %s failed: %s" method-name (caddar parsed-response))))))
-    parsed-response))
+  (let (send-params)
+    ;; Convert "unix" to 'unix
+    (unless dont-retry
+      (setq send-params (mapcar (lambda (e) 
+                                  (let ((key (intern (car e)))
+                                        (value (cdr e)))
+                                    (when (listp value)
+                                      (setq value (car value)))
+                                    (cons key value))) params)))
+    (aput 'send-params 'unix "1")
+    (aput 'send-params 'key (org-toodledo-key))
+    (aput 'send-params 'f "xml")
+    
+    (let* ((response (http-post-simple 
+                      (concat  (if org-toodledo-use-https "https" "http")
+                               "://api.toodledo.com/2/" method-name ".php")
+                      send-params))
+           parsed-response)
+      (with-temp-buffer
+        (insert (car response))
+        (setq parsed-response (xml-parse-region (point-min) (point-max))))
+      
+      (when (eq 'error (caar parsed-response))
+        (let ((msg (caddar parsed-response)))
+          (if (and (string= msg "Invalid key") (not dont-retry))
+              (progn 
+                (message "Invalid key error from Toodledo.com, retrying")
+                (setq org-toodledo-token nil)
+                (setq parsed-response (org-toodledo-call-method method-name params t)))
+            (error (format "Call to %s failed: %s" method-name (caddar parsed-response))))))
+      parsed-response)))
 
 (defmacro org-toodledo-make-lookup-function (name)
   "Create a lookup function and caching functions for NAME.
@@ -1748,7 +1760,9 @@ Reload if FORCE is non-nil.")
         (mapcar
          (lambda (item)
            (if (listp item)
-               (cons (symbol-name (car item)) (elt item 2))))
+               (let ((key (symbol-name (car item)))
+                     (value (elt item 2)))
+                 (cons key (if value (decode-coding-string value 'utf-8))))))
          (xml-node-children (delete "\n\t" info)))))
 
 (defun org-toodledo-refile-current-task (marker)

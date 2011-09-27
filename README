@@ -282,5 +282,6 @@
 ;;   
 ;; 2011-09-26  (cjwhite)
 ;; - Bug fix for checking boundp (myuhe)
-;; - Support importing utf-8 encoded titles (myuhe)
+;; - Support special chars (verified titles/notes) (myuhe)
+;; - Added `org-toodledo-inhibit-https' to disable https
 ;;
