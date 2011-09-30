@@ -309,6 +309,9 @@
 ;; - Support special chars (verified titles/notes) (myuhe)
 ;; - Added `org-toodledo-inhibit-https' to disable https
 ;;
+;; 2011-09-29  (cjwhite)
+;; - Bug fix: marking a task completed on the server did not update locally
+;;
 ;;; Code:
 
 (require 'org)
@@ -368,6 +371,14 @@ to existing tasks from the server are processed."
   "Map of Toodledo API 'status' names to org-mode TODO states."
   :group 'org-toodledo
   :type '(alist :key-type string :value-type string)
+  )
+
+(defcustom org-toodledo-sync-new-completed-tasks nil
+  "When nil, new tasks downloaded from the server are not added if they
+are already marked completed.  Existing tasks in the buffer are always
+updated.  Set to t to sync completed tasks into the local buffer."
+  :group 'org-toodledo
+  :type 'boolean
   )
 
 (defcustom org-toodledo-inhibit-https nil 
@@ -731,7 +742,7 @@ Return a list of task alists."
           (when (> (string-to-number server-lastedit-task)
                    (string-to-number local-lastedit-task))
             (aput 'params "modafter" local-lastedit-task) ;; limit to tasks edited since last sync
-            (aput 'params "comp" "0")                  ;; only grab completed tasks
+            (aput 'params "comp" "-1")                    ;; grab all tasks, completed or not
             (setq server-edit-tasks (org-toodledo-get-tasks params))
             (mapc 'org-toodledo-process-task server-edit-tasks)
             )
@@ -1155,8 +1166,11 @@ an alist of the task fields."
 
       ;; Not found, add as new
       (if (and org-toodledo-sync-import-new-tasks
+               (or org-toodledo-sync-new-completed-tasks
+                   (not (org-toodledo-task-is-completed task)))
                (or (not org-toodledo-test-mode)
                    (string-match "ORGTOODLEDOTEST" (org-toodledo-task-title task))))
+          
           (org-toodledo-insert-new-task task))
       )
     )
@@ -1438,6 +1452,10 @@ and from the local org file on the next sync"
    )
   )
 
+(defun org-toodledo-task-is-completed (task)
+  (let ((comp (org-toodledo-task-completed task)))
+    ((not (or (null comp) (equal comp "") (equal comp "0"))))))
+     
 (defun org-toodledo-task-status-to-org (task)
   (let ((comp (org-toodledo-task-completed task))
         (status (org-toodledo-task-status task)))
