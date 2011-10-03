@@ -1454,7 +1454,7 @@ and from the local org file on the next sync"
 
 (defun org-toodledo-task-is-completed (task)
   (let ((comp (org-toodledo-task-completed task)))
-    ((not (or (null comp) (equal comp "") (equal comp "0"))))))
+    (not (or (null comp) (equal comp "") (equal comp "0")))))
      
 (defun org-toodledo-task-status-to-org (task)
   (let ((comp (org-toodledo-task-completed task))
