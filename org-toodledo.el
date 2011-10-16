@@ -398,6 +398,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defvar org-toodledo-test-mode nil "Non-nil used for testing")
 (defvar org-toodledo-sync-message-time 2 "Seconds to pause after displaying sync message")
 (defvar org-toodledo-use-https nil "Use HTTPS for all calls.  This requires pro *and* a patched url-http.el.")
+(defvar org-toodledo-debug nil "Generate debug messages")
 
 ;; Registered application ID and token for Toodledo API 2.0
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
@@ -1094,11 +1095,11 @@ an alist of the task fields."
                       (t "2"))) ;; Force org-mode's no priority to be same as [#B] as is done in org-mode.
                (cons "note"
                      (org-toodledo-entry-note))))
-        (when (org-entry-get nil "FOLDER")
-          (aput 'info "folder" (org-toodledo-folder-to-id (org-entry-get nil "FOLDER"))))
+        (when (org-entry-get nil "Folder")
+          (aput 'info "folder" (org-toodledo-folder-to-id (org-entry-get nil "Folder"))))
 
-        (when (org-entry-get nil "GOAL")
-          (aput 'info "goal" (org-toodledo-goal-to-id (org-entry-get nil "GOAL"))))
+        (when (org-entry-get nil "Goal")
+          (aput 'info "goal" (org-toodledo-goal-to-id (org-entry-get nil "Goal"))))
         
         (when deadline
           (aput 'info "duedate" (format "%.0f" (org-time-string-to-seconds deadline)))
@@ -1210,12 +1211,17 @@ an alist of the task fields."
     
     (let* ((repeat (org-toodledo-repeat-to-org 
                     (org-toodledo-task-repeat task) (org-toodledo-task-repeatfrom task)))
+           (taskid (org-toodledo-task-id task))
            (priority (org-toodledo-task-priority task))
            (context (org-toodledo-task-context task))
            (note (org-toodledo-task-note task))
            (duedate (org-toodledo-task-duedate task))
            (startdate (org-toodledo-task-startdate task))
+           (modified (org-toodledo-task-modified task))
            (parent (org-toodledo-task-parent task))
+           (folder (org-toodledo-task-folder task))
+           (goal (org-toodledo-task-goal task))
+           (length (org-toodledo-task-length task))
            (old-parent (if at-point (org-toodledo-get-parent-id)))
            (level (if at-point (elt (org-heading-components) 0)))
            pos
@@ -1298,16 +1304,19 @@ an alist of the task fields."
 
       ;; create a properties drawer for all details
       (goto-char pos)
-      (org-entry-put (point) "ToodledoID" (org-toodledo-task-id task))
-      (org-entry-put (point) "Modified" (org-toodledo-task-modified task))
-      (if (and (not (equal (org-toodledo-task-folder task) "0"))
-               (not (equal (org-toodledo-task-folder task) "")))
-          (org-entry-put (point) "Folder" (car (rassoc (org-toodledo-task-folder task) org-toodledo-folders))))
-      (if (and (not (equal (org-toodledo-task-goal task) "0"))
-               (not (equal (org-toodledo-task-goal task) "")))
-          (org-entry-put (point) "Goal" (car (rassoc (org-toodledo-task-goal task) org-toodledo-goals))))
+      (if taskid (org-entry-put (point) "ToodledoID" taskid))
+      (if modified (org-entry-put (point) "Modified" modified))
+
+      (if (and folder (not (equal folder "0")) (not (equal folder "")))
+          (org-entry-put (point) "Folder" (car (rassoc folder org-toodledo-folders))))
+      
+      (if (and goal (not (equal goal "0")) (not (equal goal "")))
+          (org-entry-put (point) "Goal" (car (rassoc goal org-toodledo-goals))))
+      
       (org-entry-put (point) "Sync" (format "%d" (float-time (current-time))))
-      (org-entry-put (point) "Effort" (org-toodledo-task-length task))
+      
+      (if length 
+          (org-entry-put (point) "Effort" (org-toodledo-task-length task)))
 
       (org-toodledo-compute-hash t)
       )
@@ -1692,15 +1701,17 @@ a list of alists of fields returned from the server."
     (aput 'send-params 'key (org-toodledo-key))
     (aput 'send-params 'f "xml")
     
-    (let* ((response (http-post-simple 
-                      (concat  (if org-toodledo-use-https "https" "http")
-                               "://api.toodledo.com/2/" method-name ".php")
-                      send-params))
+    (let* ((url (concat  (if org-toodledo-use-https "https" "http")
+                         "://api.toodledo.com/2/" method-name ".php"))
+           (response (http-post-simple url send-params))
            parsed-response)
+      (org-toodledo-debug "Calling method: '%s'\n  params: %S" url send-params)
       (with-temp-buffer
         (insert (car response))
         (setq parsed-response (xml-parse-region (point-min) (point-max))))
       
+      (org-toodledo-debug "Response:\n%S\nParsed Response:\n%S\n" response parsed-response)
+
       (when (eq 'error (caar parsed-response))
         (let ((msg (caddar parsed-response)))
           (if (and (string= msg "Invalid key") (not dont-retry))
@@ -1835,5 +1846,12 @@ lists."
   (require 'org-toodledo-test)
   (org-toodledo-test)
 )
+
+(defun org-toodledo-debug (str &rest args)
+  (when org-toodledo-debug
+    (save-excursion
+      (set-buffer (get-buffer-create "*Org-toodledo-debug*"))
+      (end-of-buffer)
+      (insert (concat (apply 'format (append (list str) args)) "\n")))))
 
 (provide 'org-toodledo)
