@@ -312,6 +312,9 @@
 ;; 2011-09-29  (cjwhite)
 ;; - Bug fix: marking a task completed on the server did not update locally
 ;;
+;; 2011-10-16  (cjwhite)
+;; - Bug fix: first time sync of tasks with folders failed with org-mode 6.33x
+;;
 ;;; Code:
 
 (require 'org)
@@ -1308,10 +1311,10 @@ an alist of the task fields."
       (if modified (org-entry-put (point) "Modified" modified))
 
       (if (and folder (not (equal folder "0")) (not (equal folder "")))
-          (org-entry-put (point) "Folder" (car (rassoc folder org-toodledo-folders))))
+          (org-entry-put (point) "Folder" (org-toodledo-folder-to-id folder)))
       
       (if (and goal (not (equal goal "0")) (not (equal goal "")))
-          (org-entry-put (point) "Goal" (car (rassoc goal org-toodledo-goals))))
+          (org-entry-put (point) "Goal" (org-toodledo-goal-to-id goal)))
       
       (org-entry-put (point) "Sync" (format "%d" (float-time (current-time))))
       

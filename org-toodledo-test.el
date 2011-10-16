@@ -102,14 +102,18 @@
       ;;
       (when (or (member 'special tests) (null tests))
         (org-toodledo-test-message "TEST: Encoding special characters")
+        (org-toodledo-test-setup-buffer buf2)
+        (org-toodledo-test-message "Initializing buf2: %S" (org-toodledo-initialize "TASKS"))
+
         (org-toodledo-test-setup-buffer buf1)
-        (org-toodledo-initialize "TASKS")
+        (org-toodledo-test-message "Initializing buf1: %S" (org-toodledo-initialize "TASKS"))
+
         (goto-char (point-max))
         (insert-string "** TODO ORGTOODLEDOTEST:Task é字\nBody é字")
         (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0) "Synced out 1 new task with special chars")
 
         (org-toodledo-test-setup-buffer buf2)
-        (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(1 1 0 0 0 0) "Synced in 1 tasks with special chars")
+        (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 task with special chars")
         (org-toodledo-test-compare-tasks buf1 buf2 "Task é字")
 
         (org-toodledo-test-message "TEST: Cleanup")
@@ -120,15 +124,45 @@
       ;; Bulk test -- make sure more than 50 works
       ;;
       (when (or (member 'bulk tests) (null tests))
+        (org-toodledo-test-setup-buffer buf2)
+        (org-toodledo-initialize "TASKS")
+
         (org-toodledo-test-setup-buffer buf1)
         (org-toodledo-initialize "TASKS")
+
         (org-toodledo-test-message "TEST: Create 60 tasks")
         (set-buffer buf1)
         (org-toodledo-test-create-tasks 60 2 100)
         (org-toodledo-test-equal (org-toodledo-sync) '(60 0 0 60 0 0) "Synced 60 new tasks")
         
         (org-toodledo-test-setup-buffer buf2)
-        (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(60 60 0 0 0 0) "Synced in 60 tasks")
+        (org-toodledo-test-equal (org-toodledo-sync) '(60 60 0 0 0 0) "Synced in 60 tasks")
+
+        (org-toodledo-test-message "TEST: Cleanup")
+        (org-toodledo-test-cleanup)
+        )
+
+      ;; 
+      ;; Folder tests
+      ;;
+      (when (or (member 'folder tests) (null tests))
+        (org-toodledo-test-setup-buffer buf2)
+        (org-toodledo-initialize "TASKS")
+
+        (org-toodledo-test-setup-buffer buf1)
+        (org-toodledo-initialize "TASKS")
+
+        (org-toodledo-test-message "TEST: Create 1 task with a folder")
+        (set-buffer buf1)
+        (org-toodledo-test-create-tasks 1 2 200)
+        (org-toodledo-test-goto-task "Task 200")
+        (let ((task (org-toodledo-parse-current-task)))
+          (aput 'task "folder" (org-toodledo-folder-to-id "TESTFOLDER"))
+          (org-toodledo-insert-new-task task t t))
+        (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0) "Synced 1 new task")
+        
+        (org-toodledo-test-setup-buffer buf2)
+        (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 tasks")
 
         (org-toodledo-test-message "TEST: Cleanup")
         (org-toodledo-test-cleanup)
@@ -148,12 +182,9 @@
   (if buffer
       (set-buffer buffer)
     (setq buffer (current-buffer)))
-  (let (p)
-    (setq p (org-find-exact-headline-in-buffer (concat "ORGTOODLEDOTEST:" title)))
-    (org-toodledo-test-check p "Find task '%s' in buffer '%S'" title (current-buffer))
-    (when p (goto-char p))
-    p
-    )
+  (goto-char (point-min))
+  (org-toodledo-test-check (re-search-forward (concat "ORGTOODLEDOTEST:" title "\\b") nil t)
+                           "Find task '%s' in buffer '%S'" title (current-buffer))
   )
 
 (defun org-toodledo-test-setup-buffer (name)
@@ -242,8 +273,11 @@
   
   (mapcar 
    (lambda (title)
-     (org-toodledo-test-check (org-find-exact-headline-in-buffer (concat "ORGTOODLEDOTEST:" title))
-                              "Find task in buffer %S: %s" buffer title))
+     (org-toodledo-test-check 
+      (save-excursion 
+        (goto-char (point-min))
+        (re-search-forward (concat "ORGTOODLEDOTEST:" title "\\b") nil t))
+      "Find task in buffer %S: %s" buffer title))
    titles))
 
 (provide 'org-toodledo-test)

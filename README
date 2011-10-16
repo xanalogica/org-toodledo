@@ -288,3 +288,6 @@
 ;; 2011-09-29  (cjwhite)
 ;; - Bug fix: marking a task completed on the server did not update locally
 ;;
+;; 2011-10-16  (cjwhite)
+;; - Bug fix: first time sync of tasks with folders failed with org-mode 6.33x
+;;
