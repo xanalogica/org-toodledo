@@ -291,3 +291,8 @@
 ;; 2011-10-16  (cjwhite)
 ;; - Bug fix: first time sync of tasks with folders failed with org-mode 6.33x
 ;;
+;; 2011-12-05  (cjwhite)
+;; - Bug fix: folder / id mapping was reversed
+;; - Bug fix: added require for aput / assoc
+;; - Properly clear fields that are not set locally, ensuring they get cleared on server
+;;

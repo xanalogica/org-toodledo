@@ -315,6 +315,11 @@
 ;; 2011-10-16  (cjwhite)
 ;; - Bug fix: first time sync of tasks with folders failed with org-mode 6.33x
 ;;
+;; 2011-12-05  (cjwhite)
+;; - Bug fix: folder / id mapping was reversed
+;; - Bug fix: added require for aput / assoc
+;; - Properly clear fields that are not set locally, ensuring they get cleared on server
+;;
 ;;; Code:
 
 (require 'org)
@@ -326,6 +331,7 @@
 (require 'http-post-simple)
 (require 'url)
 (require 'url-http)
+(require 'assoc)
 
 ;;
 ;; User customizable variables
@@ -402,6 +408,9 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defvar org-toodledo-sync-message-time 2 "Seconds to pause after displaying sync message")
 (defvar org-toodledo-use-https nil "Use HTTPS for all calls.  This requires pro *and* a patched url-http.el.")
 (defvar org-toodledo-debug nil "Generate debug messages")
+(defvar org-toodledo-folders nil "Map of folder names to ids")
+(defvar org-toodledo-goals nil "Map of goal names to ids")
+(defvar org-toodledo-contexts nil "Map of context names to ids")
 
 ;; Registered application ID and token for Toodledo API 2.0
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
@@ -493,6 +502,9 @@ should only be used for the short period of time when a new task is ")
         (message "Org-toodled already initialized")
       (let ((item default-heading)
             result)
+        (setq org-toodledo-folders nil)
+        (setq org-toodledo-goals nil)
+        (setq org-toodledo-contexts nil)
         (unless item
           (condition-case nil
               (progn 
@@ -1098,12 +1110,16 @@ an alist of the task fields."
                       (t "2"))) ;; Force org-mode's no priority to be same as [#B] as is done in org-mode.
                (cons "note"
                      (org-toodledo-entry-note))))
-        (when (org-entry-get nil "Folder")
-          (aput 'info "folder" (org-toodledo-folder-to-id (org-entry-get nil "Folder"))))
 
-        (when (org-entry-get nil "Goal")
-          (aput 'info "goal" (org-toodledo-goal-to-id (org-entry-get nil "Goal"))))
+        (aput 'info "folder"
+              (if (org-entry-get nil "Folder") (org-toodledo-folder-to-id (org-entry-get nil "Folder")) "0"))
+
+        (aput 'info "goal" 
+              (if (org-entry-get nil "Goal") (org-toodledo-goal-to-id (org-entry-get nil "Goal")) "0"))
         
+        (aput 'info "duedate" "0")
+        (aput 'info "repeat" "")
+        (aput 'info "repeatfrom" "0")
         (when deadline
           (aput 'info "duedate" (format "%.0f" (org-time-string-to-seconds deadline)))
           (let ((repeat (org-toodledo-org-to-repeat deadline)))
@@ -1113,8 +1129,9 @@ an alist of the task fields."
               )
             )
           )
-        (when scheduled
-          (aput 'info "startdate" (format "%.0f" (org-time-string-to-seconds scheduled))))
+
+        (aput 'info "startdate" 
+              (if scheduled (format "%.0f" (org-time-string-to-seconds scheduled)) "0" ))
 
         (aput 'info "parent" (org-toodledo-get-parent-id))
         
@@ -1311,10 +1328,10 @@ an alist of the task fields."
       (if modified (org-entry-put (point) "Modified" modified))
 
       (if (and folder (not (equal folder "0")) (not (equal folder "")))
-          (org-entry-put (point) "Folder" (org-toodledo-folder-to-id folder)))
+          (org-entry-put (point) "Folder" (org-toodledo-id-to-folder folder)))
       
       (if (and goal (not (equal goal "0")) (not (equal goal "")))
-          (org-entry-put (point) "Goal" (org-toodledo-goal-to-id goal)))
+          (org-entry-put (point) "Goal" (org-toodledo-id-to-goal goal)))
       
       (org-entry-put (point) "Sync" (format "%d" (float-time (current-time))))
       
@@ -1739,7 +1756,6 @@ a list of alists of fields returned from the server."
         (get-method (concat name "s/get")))
     (list
      'progn
-     `(defvar ,(intern cache-var) nil)
      `(defun ,(intern get-func) (&optional force)
         ,(concat "Store an alist of (title . id) in `" cache-var "'.
 Reload if FORCE is non-nil.")
@@ -1783,8 +1799,45 @@ Reload if FORCE is non-nil.")
   )
 
 (org-toodledo-make-lookup-function "context")
-(org-toodledo-make-lookup-function "folder")
 (org-toodledo-make-lookup-function "goal")
+
+(defun org-toodledo-convert-xml-to-lookup-list (xml-resp tag)
+  "Parse XML response used for folders, goals, and contexts"
+  (mapcar
+   (lambda (node)
+     (cons
+      (caddar (xml-get-children node 'name)) (caddar (xml-get-children node 'id))))
+   (xml-get-children (car xml-resp) tag)))
+  
+(defun org-toodledo-get-folders (&optional force)
+   "Store an alist of (title . id) in `org-toodledo-folders'.
+Reload if FORCE is non-nil."
+   (if (or force (null org-toodledo-folders))
+       (setq org-toodledo-folders
+             (org-toodledo-convert-xml-to-lookup-list (org-toodledo-call-method "folders/get") 'folder)))
+   org-toodledo-folders
+   )
+
+(defun org-toodledo-folder-to-id (name) 
+   "Return numeric ID for NAME, creating if necessary."
+   (let ((lookups (org-toodledo-get-folders)))
+     (if (null (assoc name lookups))
+         ;; Create it if it does not yet exist
+         (let ((result (org-toodledo-call-method "folders/add" (list (cons "name" name)))))
+           (if (eq (caar result) 'error)
+               (error (format "Failed to add new folder: %s" name))
+             (setq org-toodledo-folders nil)
+             (setq lookups (org-toodledo-get-folders)))))
+     (cdr (assoc name lookups))))
+
+(defun org-toodledo-id-to-folder (id)
+   "Return NAME for folder by ID."
+   (let ((lookups (org-toodledo-get-folders)))
+     (if (null (rassoc id lookups))
+         nil
+       (car (rassoc id lookups))))
+   )
+
 
 (defun org-toodledo-convert-xml-result-to-alist (info)
   "Convert INFO to an alist."
