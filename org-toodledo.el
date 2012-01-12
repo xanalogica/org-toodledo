@@ -1594,7 +1594,7 @@ as a Toodledo style string.  Return nil if STRING has no repeat information"
             "%H:%M" 
             (seconds-to-time 
              (+ (car (current-time-zone)) (string-to-number time))))))
-   (when repeat (concat " " repeat) "")
+   (if repeat (concat " " repeat) "")
    ">"))
 
 ;;
