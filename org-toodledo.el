@@ -1,11 +1,16 @@
 ;;; org-toodledo.el --- Toodledo integration for Emacs Org mode
-;;
-;; (c) 2011 Christopher J. White (cjwhite -- emacs <at> grierwhite.com)
+
+;; Copyright (C) 2011-2012 Christopher J. White
+
+;; Author: Christopher J. White <emacs@grierwhite.com>
+;; Created: 7 Sep 2011
+;; Keywords: outlines, data
+
 ;; GNU General Public License v2 (GNU GPL v2),
 ;; inspired by work from Sacha Chua
 ;;
 ;; This file is not part of GNU Emacs.
-
+;;
 ;; This is free software; you can redistribute it and/or modify it
 ;; under the terms of the GNU General Public License as published by
 ;; the Free Software Foundation; either version 2, or (at your option)
@@ -21,40 +26,13 @@
 ;; Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
 ;; MA 02111-1307, USA.
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-;;; Commentary
+;;; Commentary:
 ;;
 ;; This package is adds the ability to sync org-mode tasks with
 ;; Toodledo, a powerful web-based todo list manager that welcomes 3rd
 ;; party integrations.  (See http://www.toodledo.com/)
 ;;
 ;; This version of `org-toodledo' utilizes version 2.0 of the Toodledo API. 
-;;
-;; INSTALLATION
-;; ------------
-;;
-;; 1. Required emacs packages:
-;;      * `w3m' or `w3mexcerpt' -- see Notes below
-;;      * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
-;;
-;; 2. Put this file in your load path, byte compile the file for best
-;;    performance, see `byte-compile-file'.
-;;
-;; 3. Put the following in your .emacs:
-;;
-;;    (push "<path-to-this-file>" load-path)
-;;    (require 'org-toodledo)
-;;    (setq org-toodledo-userid "<toodledo-userid>")      << *NOT* your email!
-;;    (setq org-toodledo-password "<toodled-password>")
-;;
-;;    ;; Useful key bindings for org-mode
-;;    (add-hook 'org-mode-hook
-;;           (lambda ()
-;;             (local-unset-key "\C-o")
-;;             (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
-;;             (local-set-key "\C-os" 'org-toodledo-sync)
-;;             )
-;;           )
 ;;
 ;; SYNCHRONIZING FOR THE FIRST TIME
 ;; --------------------------------
@@ -274,8 +252,8 @@
 ;;
 ;; [ ] Support tasks across all agenda files.  (cjwhite)
 ;;
-;; CHANGES
-;; -------
+
+;;; Change Log:
 ;;
 ;; 2011-09-07  (cjwhite)
 ;; - First release for general distribution based on API 2.0
@@ -320,6 +298,33 @@
 ;; - Bug fix: added require for aput / assoc
 ;; - Properly clear fields that are not set locally, ensuring they get cleared on server
 ;;
+
+;;; Installation:
+;;
+;; 1. Required emacs packages:
+;;      * `w3m' or `w3mexcerpt' -- see Notes below
+;;      * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
+;;
+;; 2. Put this file in your load path, byte compile the file for best
+;;    performance, see `byte-compile-file'.
+;;
+;; 3. Put the following in your .emacs:
+;;
+;;    (push "<path-to-this-file>" load-path)
+;;    (require 'org-toodledo)
+;;    (setq org-toodledo-userid "<toodledo-userid>")      << *NOT* your email!
+;;    (setq org-toodledo-password "<toodled-password>")
+;;
+;;    ;; Useful key bindings for org-mode
+;;    (add-hook 'org-mode-hook
+;;           (lambda ()
+;;             (local-unset-key "\C-o")
+;;             (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
+;;             (local-set-key "\C-os" 'org-toodledo-sync)
+;;             )
+;;           )
+
+
 ;;; Code:
 
 (require 'org)
@@ -1911,3 +1916,4 @@ lists."
       (insert (concat (apply 'format (append (list str) args)) "\n")))))
 
 (provide 'org-toodledo)
+;;; org-toodledo.el ends here
