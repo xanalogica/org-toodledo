@@ -99,7 +99,7 @@
           (org-toodledo-test-message "TEST: Syncing modified Task 1")
           (set-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 modified task")
-          (org-toodledo-test-verify-tasks buf1 "Task 1 - modified2" "Task 2" "Task 3")
+          (org-toodledo-test-verify-tasks buf1 "Task 1 - modified" "Task 2" "Task 3")
           
           ;; Modify Task 3 and sync
           (org-toodledo-test-message "TEST: Modifying Task 3")
