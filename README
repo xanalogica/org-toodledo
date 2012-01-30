@@ -1,6 +1,6 @@
 ;;; Commentary:
 ;;
-;; This package is adds the ability to sync org-mode tasks with
+;; This package adds the ability to sync org-mode tasks with
 ;; Toodledo, a powerful web-based todo list manager that welcomes 3rd
 ;; party integrations.  (See http://www.toodledo.com/)
 ;;
@@ -106,7 +106,9 @@
 ;; | title          | Heading                | Heading minus TODO state, priority and tags  |
 ;; | status         | TODO state             | See `org-toodledo-status-to-org-map'         |
 ;; | startdate      | SCHEDULED              |                                              |
+;; | starttime      | SCHEDULED              |                                              |
 ;; | duedate        | DEADLINE               |                                              |
+;; | duetime        | DEADLINE               |                                              |
 ;; | completed      | CLOSED                 | Timestamp when the task was marked completed |
 ;; | repeat         | Repeat interval        |                                              |
 ;; | repeatfrom     |                        |                                              |
@@ -270,6 +272,18 @@
 ;; - Bug fix: added require for aput / assoc
 ;; - Properly clear fields that are not set locally, ensuring they get cleared on server
 ;;
+;; 2012-01-29  (cjwhite) - Version 2.2.0
+;; - Added support for starttime / duetime (merged in partical changes for myuhe).  Note
+;;   that the web site does not seem properly handle timezones.  The time in org-mode
+;;   is properly converted to a unix timestamp (adjusting for timezone) and sent to the
+;;   server, but the displayed time on toodledo.com and in apps (at least iPad app) is
+;;   the time component in GMT, not the timezone set in the account settings.  Waiting
+;;   for a response from toodledo.com on this.
+;; - Added `org-toodledo-flatten-all-tasks' which disables parent/child tasking.
+;;   Set to true if you have more than 2 levels and wish to sync tasks to the server
+;;   as a flat list at least for backup.
+;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
+;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 
 ;;; Installation:
 ;;

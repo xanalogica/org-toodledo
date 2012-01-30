@@ -4,6 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
+;; Version: 2.2.0
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -28,7 +29,7 @@
 
 ;;; Commentary:
 ;;
-;; This package is adds the ability to sync org-mode tasks with
+;; This package adds the ability to sync org-mode tasks with
 ;; Toodledo, a powerful web-based todo list manager that welcomes 3rd
 ;; party integrations.  (See http://www.toodledo.com/)
 ;;
@@ -134,7 +135,9 @@
 ;; | title          | Heading                | Heading minus TODO state, priority and tags  |
 ;; | status         | TODO state             | See `org-toodledo-status-to-org-map'         |
 ;; | startdate      | SCHEDULED              |                                              |
+;; | starttime      | SCHEDULED              |                                              |
 ;; | duedate        | DEADLINE               |                                              |
+;; | duetime        | DEADLINE               |                                              |
 ;; | completed      | CLOSED                 | Timestamp when the task was marked completed |
 ;; | repeat         | Repeat interval        |                                              |
 ;; | repeatfrom     |                        |                                              |
@@ -298,6 +301,18 @@
 ;; - Bug fix: added require for aput / assoc
 ;; - Properly clear fields that are not set locally, ensuring they get cleared on server
 ;;
+;; 2012-01-29  (cjwhite) - Version 2.2.0
+;; - Added support for starttime / duetime (merged in partical changes for myuhe).  Note
+;;   that the web site does not seem properly handle timezones.  The time in org-mode
+;;   is properly converted to a unix timestamp (adjusting for timezone) and sent to the
+;;   server, but the displayed time on toodledo.com and in apps (at least iPad app) is
+;;   the time component in GMT, not the timezone set in the account settings.  Waiting
+;;   for a response from toodledo.com on this.
+;; - Added `org-toodledo-flatten-all-tasks' which disables parent/child tasking.
+;;   Set to true if you have more than 2 levels and wish to sync tasks to the server
+;;   as a flat list at least for backup.
+;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
+;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 
 ;;; Installation:
 ;;
@@ -401,6 +416,12 @@ updated.  Set to t to sync completed tasks into the local buffer."
   :type 'boolean
 )
 
+(defcustom org-toodledo-flatten-all-tasks nil
+  "Set to t to always flatten all tasks, ignoring any parent/child relationship"
+  :group 'org-toodledo
+  :type 'boolean
+)
+
 ;;
 ;; Internal variables for tracking org-toodledo state
 ;;
@@ -424,8 +445,8 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-fields 
   '( 
     ;; Toodledo recongized fields
-    "id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" 
-    "startdate" "modified" "folder" "goal" "priority" "note" "length" "parent"
+    "id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "duetime"
+    "startdate" "starttime" "modified" "folder" "goal" "priority" "note" "length" "parent"
     ;; org-toodledo only fields
     "sync" "hash")
   "All fields related to a task"
@@ -433,7 +454,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 
 (defconst org-toodledo-fields-dont-ask
   '( 
-    ;; Fields that toodled always returns, thus cannot be asked for
+    ;; Fields that toodledo always returns, thus cannot be asked for
     "id" "title" "modified" "completed" 
     ;; org-toodledo only fields
     "sync" "hash")
@@ -451,9 +472,15 @@ returns them automatically, or because they are internal only fields"
   )
 
 (defconst org-toodledo-hash-fields 
-  '( "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "startdate"
-     "folder" "goal" "priority" "note" "length" "parent")
+  '( "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "duetime"
+     "startdate" "starttime" "folder" "goal" "priority" "note" "length" "parent")
   "Fields that are used to compute the hash of a task for detecting when a task changed."
+  )
+
+(defconst org-toodledo-hash-fields-skip-if-zero
+  '( "duetime" "starttime" )
+  "Fields that are skipped if they are 0 when computing the hash.  This prevents 
+newly supported fields from causing all tasks to appear to have been modified."
   )
 
 (defvar org-toodledo-fields-ask
@@ -495,6 +522,15 @@ should only be used for the short period of time when a new task is ")
 ;;
 (when (boundp 'url-http-inhibit-connection-reuse)
   (setq url-http-inhibit-connection-reuse t))
+
+(defun org-toodledo-toggle-debug ()
+  "Toggle debug messages.  All debug messages are sent to the buffer *Org-toodledo-debug*"
+  (interactive)
+  (setq org-toodledo-debug (not org-toodledo-debug))
+  (if org-toodledo-debug 
+      (message "Debug enabled - debug messages are sent to the buffer *Org-toodledo-debug*")
+    (message "Debug disabled"))
+  )
 
 (defun org-toodledo-initialize (&optional default-heading)
   "Setup current item in an org file with Toodledo tasks.  If not "
@@ -543,6 +579,18 @@ should only be used for the short period of time when a new task is ")
         )
       )
     )
+  )
+
+(defun org-toodledo-clear-cached-vars ()
+  "Clear all cached variables such as the toekn, local list of folders and contexts, etc.
+Call this if switching accounts."
+  (interactive)
+  (setq org-toodledo-token nil)
+  (setq org-toodledo-pro nil)
+  (setq org-toodledo-pro-cached nil)
+  (setq org-toodledo-folders nil)
+  (setq org-toodledo-goals nil)
+  (setq org-toodledo-contexts nil)
   )
 
 (defun org-toodledo-fixup-tags ()
@@ -810,7 +858,8 @@ Return a list of task alists."
                ;; if it is new waiting to be assigned a real id. 
                ;; 
                ;; Note -- subtasks require pro account subscription
-               (parent-task (if (org-toodledo-pro)
+               (parent-task (if (and (org-toodledo-pro)
+                                     (not org-toodledo-flatten-all-tasks))
                                 (cdr (assoc (save-excursion (if (org-up-heading-safe)
                                                                 (elt (org-heading-components) 4)))
                                             tasks-by-title-alist))))
@@ -1123,10 +1172,22 @@ an alist of the task fields."
               (if (org-entry-get nil "Goal") (org-toodledo-goal-to-id (org-entry-get nil "Goal")) "0"))
         
         (aput 'info "duedate" "0")
+        (aput 'info "duetime" "0")
         (aput 'info "repeat" "")
         (aput 'info "repeatfrom" "0")
         (when deadline
           (aput 'info "duedate" (format "%.0f" (org-time-string-to-seconds deadline)))
+          
+          ;; Check for a time component, and if so set the duetime as well
+          ;; Note that org-parse-time-string returns a list with the 2nd and 3rd 
+          ;; items representing the minutes and hour.  If no-time component was set, 
+          ;; it returns nil, otherwise a number.  Important to distinguish between
+          ;; 0 and nil, as the user may have a deadline of "<2012-01-30 Mon 00:00>" which
+          ;; will yield 0 and 0 for hour/minutes. 
+          (when (cadr (org-parse-time-string deadline t))
+            (aput 'info "duetime" (format "%.0f" (org-time-string-to-seconds deadline))))
+        
+          ;; Add on the repeat
           (let ((repeat (org-toodledo-org-to-repeat deadline)))
             (when repeat
               (aput 'info "repeat" (car repeat))
@@ -1135,9 +1196,15 @@ an alist of the task fields."
             )
           )
 
-        (aput 'info "startdate" 
-              (if scheduled (format "%.0f" (org-time-string-to-seconds scheduled)) "0" ))
+        (aput 'info "startdate" "0")
+        (aput 'info "starttime" "0")
+        (when scheduled
+          (aput 'info "startdate" (format "%.0f" (org-time-string-to-seconds scheduled)))
 
+          (when (cadr (org-parse-time-string scheduled t))
+            (aput 'info "starttime" (format "%.0f" (org-time-string-to-seconds scheduled))))
+          )
+        
         (aput 'info "parent" (org-toodledo-get-parent-id))
         
         info))))
@@ -1145,7 +1212,9 @@ an alist of the task fields."
 (defun org-toodledo-get-parent-id ()
   "Return the ToodledoID of the immediate parent task.  Requires Pro account subscription"
   (save-excursion 
-    (or (if (and (org-toodledo-pro) (org-up-heading-safe))
+    (or (if (and (org-toodledo-pro) 
+                 (not org-toodledo-flatten-all-tasks)
+                 (org-up-heading-safe))
             (org-entry-get nil "ToodledoID")) 
         "0")))
 
@@ -1154,6 +1223,8 @@ an alist of the task fields."
   - if TASK is not yet known (by id), create a new task
   - if TASK is known but local copy is not modified, update the local task
   - if TASK is known and local copy was modified, insert TASK as a duplicate"
+  (when org-toodledo-debug
+    (org-toodledo-debug "processing task: %S" task))
   (save-excursion
     (if (org-toodledo-goto-todo-entry (org-toodledo-task-id task) t)
 
@@ -1168,16 +1239,22 @@ an alist of the task fields."
                                (string-to-number local-lastsync))))
                (level (elt (org-heading-components) 0))
                )
+          (when org-toodledo-debug
+            (org-toodledo-debug "Found existing task: (server-modified %S, local-modified %S, local-lastsync %S, hash %S, computed-hash %S, touched %S, level %S)"
+                                server-modified local-modified local-lastsync hash computed-hash touched level)
+            )
           (cond
 
            ;; Not touched locally, and server did modify it; delete and recreate
            ((and (not touched) 
                  (> (string-to-number server-modified) (string-to-number local-modified)))
+            (org-toodledo-debug "Task not modified locally, replacing entirely with server version")
             (org-toodledo-insert-new-task task t t)
             )
            
            ((and touched
                  (> (string-to-number server-modified) (string-to-number local-modified)))
+            (org-toodledo-debug "Task modified locally and on server, keeping both")
             (message "Task %s was modified locally and on the server, both are saved" 
                      (org-toodledo-task-id task))
             (org-toodledo-insert-new-task task t)
@@ -1187,17 +1264,29 @@ an alist of the task fields."
             ;;   - on sync, check for dups and don't sync until the user resolves all dups
             ;;   - have a special check for dups function, lets user pick one or the other or edit
             )
+           
+           (t
+            (org-toodledo-debug "No action for this task"))
+
            )
           )
 
       ;; Not found, add as new
+      (org-toodledo-debug "Task not found locally, inserting as new")
       (if (and org-toodledo-sync-import-new-tasks
                (or org-toodledo-sync-new-completed-tasks
                    (not (org-toodledo-task-is-completed task)))
                (or (not org-toodledo-test-mode)
                    (string-match "ORGTOODLEDOTEST" (org-toodledo-task-title task))))
           
-          (org-toodledo-insert-new-task task))
+          (org-toodledo-insert-new-task task)
+        (org-toodledo-debug "...skipped: (import-new %S, sync-new-completed %S, is completed %S, test-mode %S, test task %S)"
+                            org-toodledo-sync-import-new-tasks
+                            org-toodledo-sync-new-completed-tasks
+                            (org-toodledo-task-is-completed task)
+                            org-toodledo-test-mode
+                            (string-match "ORGTOODLEDOTEST" (org-toodledo-task-title task)))
+        )
       )
     )
   )
@@ -1240,8 +1329,10 @@ an alist of the task fields."
            (priority (org-toodledo-task-priority task))
            (context (org-toodledo-task-context task))
            (note (org-toodledo-task-note task))
-           (duedate (org-toodledo-task-duedate task))
-           (startdate (org-toodledo-task-startdate task))
+           (duedate (string-to-number (org-toodledo-task-duedate task)))
+           (duetime (string-to-number (org-toodledo-task-duetime task)))
+           (startdate (string-to-number (org-toodledo-task-startdate task)))
+           (starttime (string-to-number (org-toodledo-task-starttime task)))
            (modified (org-toodledo-task-modified task))
            (parent (org-toodledo-task-parent task))
            (folder (org-toodledo-task-folder task))
@@ -1305,26 +1396,30 @@ an alist of the task fields."
 
       ;; duedate => "DEADLINE: <2011-08-21 Sun>" 
       ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
-      (if (and duedate
-               (not (<= (string-to-number duedate) 0)))    
-          (setq duedate (concat org-deadline-string " "
-                                (org-toodledo-format-date duedate repeat)))
-        (setq duedate nil))
+      (cond
+       ((> duedate 0)
+        (setq deadline (concat org-deadline-string " "
+                               (org-toodledo-format-date (if (> duetime 0) duetime duedate)
+                                                         (> duetime 0) repeat))))
+       (t
+        (setq deadline nil)))
       
       ;; startdate => "SCHEDULED: <2011-08-21 Sun>" 
       ;; If a repeat string was found, it is added: "DEADLINE: <2011-08-21 Sun +1m>"
-      (if (and startdate
-               (not (<= (string-to-number startdate) 0)))
-          (setq startdate (concat (make-string (if duedate 1 (1+ (or level 2))) ? )
-                                  org-scheduled-string " "
-                                  (org-toodledo-format-date startdate repeat)))
-        (setq startdate nil))
-      
-      (when (or duedate startdate)
+      (cond
+       ((> startdate 0)
+        (setq scheduled (concat (make-string (if deadline 1 (1+ (or level 2))) ? )
+                                org-scheduled-string " "
+                                (org-toodledo-format-date (if (> starttime 0) starttime startdate)
+                                                          (> starttime 0) repeat))))
+       (t
+        (setq scheduled nil)))
+       
+      (when (or deadline scheduled)
         (insert (make-string (1+ (or level 2)) ? ))
-        (if duedate (insert duedate))
-        (if (and duedate startdate) (insert " "))
-        (if startdate (insert startdate))
+        (if deadline (insert deadline))
+        (if (and deadline scheduled) (insert " "))
+        (if scheduled (insert scheduled))
         (insert "\n"))
 
       ;; create a properties drawer for all details
@@ -1569,12 +1664,12 @@ as a Toodledo style string.  Return nil if STRING has no repeat information"
 
 ;; (assert (equal (org-toodledo-format-date "2003-08-12") "<2003-08-12 Tue>"))
 
-(defun org-toodledo-format-date (date &optional repeat)
+(defun org-toodledo-format-date (date addtime &optional repeat)
   "Return yyyy-mm-dd day for DATE."
   (concat
    "<"
    (format-time-string
-    "%Y-%m-%d %a"
+    (if addtime "%Y-%m-%d %a %H:%M" "%Y-%m-%d %a")
     (cond
      ((listp date) date)
      ((numberp date) (seconds-to-time date))
@@ -1632,7 +1727,13 @@ return position, otherwise a marker."
       (error "Cannot update a task that was passed as an argument"))
 
   (unless task (setq task (org-toodledo-parse-current-task)))
-  (let* ((text (mapconcat (lambda (field) (cdr (assoc field task))) org-toodledo-hash-fields ""))
+  (let* ((text (mapconcat (lambda (field) 
+                            (let ((value (cdr (assoc field task))))
+                              (if (and (string= value "0")
+                                       (member field org-toodledo-hash-fields-skip-if-zero))
+                                  "" value))
+                            )
+                          org-toodledo-hash-fields ""))
          (hash (md5 text)))
     ;;(message "org-toodledo-compute-hash: %s from %s" hash text)
     (when update
@@ -1730,12 +1831,12 @@ a list of alists of fields returned from the server."
                          "://api.toodledo.com/2/" method-name ".php"))
            (response (http-post-simple url send-params))
            parsed-response)
-      (org-toodledo-debug "Calling method: '%s'\n  params: %S" url send-params)
+      (org-toodledo-debug "---\norg-toodledo-call-method: '%s'\n  params: %S" url send-params)
       (with-temp-buffer
         (insert (car response))
         (setq parsed-response (xml-parse-region (point-min) (point-max))))
       
-      (org-toodledo-debug "Response:\n%S\nParsed Response:\n%S\n" response parsed-response)
+      (org-toodledo-debug "---\nResponse:\n%S\nParsed Response:\n%S---\n" response parsed-response)
 
       (when (eq 'error (caar parsed-response))
         (let ((msg (caddar parsed-response)))
@@ -1905,15 +2006,27 @@ lists."
   "Run org-toodledo-test suite"
   (interactive)
   (require 'org-toodledo-test)
-  (org-toodledo-test)
-)
+  (when (y-or-n-p "Switch to test account and run org-toodledo tests? ")
+    (let ((old-userid org-toodledo-userid)
+          (old-password org-toodledo-password))
+      (setq org-toodledo-userid "td4edb814ec9e76")
+      (setq org-toodledo-password "org-4-Toodledo")
+      (org-toodledo-clear-cached-vars)
+      (condition-case nil
+          (org-toodledo-test))
+      (setq org-toodledo-userid old-userid)
+      (setq org-toodledo-password old-password)
+      (org-toodledo-clear-cached-vars)
+      )
+    )
+  )
 
 (defun org-toodledo-debug (str &rest args)
   (when org-toodledo-debug
     (save-excursion
       (set-buffer (get-buffer-create "*Org-toodledo-debug*"))
       (end-of-buffer)
-      (insert (concat (apply 'format (append (list str) args)) "\n")))))
+      (insert (concat "[" (format-time-string "%H:%M:%S") "] " (apply 'format (append (list str) args)) "\n")))))
 
 (provide 'org-toodledo)
 ;;; org-toodledo.el ends here
