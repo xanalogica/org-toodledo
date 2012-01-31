@@ -1266,7 +1266,6 @@ an alist of the task fields."
           )
         
         (aput 'info "parent" (org-toodledo-get-parent-id))
-        
         info))))
 
 (defun org-toodledo-get-parent-id ()
