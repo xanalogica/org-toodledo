@@ -81,12 +81,14 @@
           (org-toodledo-test-setup-buffer buf1)
           (org-toodledo-test-create-tasks 3)
           (org-toodledo-initialize "TASKS")
-          
+          (sleep-for 2)
+
           ;; Create buf2 in org-mode, initialize, pull in tasks
           (org-toodledo-test-message "TEST: Syncing 3 tasks")
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-initialize "TASKS")
           (org-toodledo-test-verify-tasks buf2 "Task 1" "Task 2" "Task 3")
+          (sleep-for 2)
           
           ;; Modify Task 1 and sync
           (org-toodledo-test-message "TEST: Modifying Task 1")
@@ -94,12 +96,14 @@
           (end-of-line)
           (insert-string " - modified")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0) "Synced out 1 modified task")
+          (sleep-for 2)
           
           ;; Back to buf1, sync -- verify
           (org-toodledo-test-message "TEST: Syncing modified Task 1")
           (set-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 modified task")
           (org-toodledo-test-verify-tasks buf1 "Task 1 - modified" "Task 2" "Task 3")
+          (sleep-for 2)
           
           ;; Modify Task 3 and sync
           (org-toodledo-test-message "TEST: Modifying Task 3")
@@ -107,12 +111,14 @@
           (end-of-line)
           (insert-string " - modified")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0) "Synced out 1 modified task")
+          (sleep-for 2)
 
           ;; Back to buf2, sync -- verify
           (org-toodledo-test-message "TEST: Syncing modified Task 3")
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 modified task")
           (org-toodledo-test-verify-tasks buf2 "Task 1 - modified" "Task 2" "Task 3 - modified")
+          (sleep-for 2)
 
           ;; Compare all tasks between both buffers
           (org-toodledo-test-message "TEST: Comparing all tasks between buffers")
@@ -120,6 +126,7 @@
 
           (org-toodledo-test-message "TEST: Cleanup")
           (org-toodledo-test-cleanup)
+          (sleep-for 2)
           )
         
         ;; 
@@ -129,20 +136,25 @@
           (org-toodledo-test-message "TEST: Encoding special characters")
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-test-message "Initializing buf2: %S" (org-toodledo-initialize "TASKS"))
+          (sleep-for 2)
 
           (org-toodledo-test-setup-buffer buf1)
           (org-toodledo-test-message "Initializing buf1: %S" (org-toodledo-initialize "TASKS"))
+          (sleep-for 2)
 
           (goto-char (point-max))
           (insert-string "** TODO ORGTOODLEDOTEST:Task é字\nBody é字")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0) "Synced out 1 new task with special chars")
+          (sleep-for 2)
 
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 task with special chars")
           (org-toodledo-test-compare-tasks buf1 buf2 "Task é字")
+          (sleep-for 2)
 
           (org-toodledo-test-message "TEST: Cleanup")
           (org-toodledo-test-cleanup)
+          (sleep-for 2)
           )
         
         ;;
@@ -151,20 +163,25 @@
         (when (or (member 'bulk tests) (null tests))
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-initialize "TASKS")
+          (sleep-for 2)
 
           (org-toodledo-test-setup-buffer buf1)
           (org-toodledo-initialize "TASKS")
+          (sleep-for 2)
 
           (org-toodledo-test-message "TEST: Create 60 tasks")
           (set-buffer buf1)
           (org-toodledo-test-create-tasks 60 2 100)
           (org-toodledo-test-equal (org-toodledo-sync) '(60 0 0 60 0 0) "Synced 60 new tasks")
+          (sleep-for 2)
           
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(60 60 0 0 0 0) "Synced in 60 tasks")
+          (sleep-for 2)
 
           (org-toodledo-test-message "TEST: Cleanup")
           (org-toodledo-test-cleanup)
+          (sleep-for 2)
           )
 
         ;; 
@@ -173,29 +190,36 @@
         (when (or (member 'folder tests) (null tests))
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-initialize "TASKS")
+          (sleep-for 2)
 
           (org-toodledo-test-setup-buffer buf1)
           (org-toodledo-initialize "TASKS")
+          (sleep-for 2)
 
           (org-toodledo-test-message "TEST: Create 1 task with a folder")
           (set-buffer buf1)
           (org-toodledo-test-create-tasks 1 2 200)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0) "Synced out 1 new task from buf1")
+          (sleep-for 2)
           
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 task into buff2")
+          (sleep-for 2)
 
           (org-toodledo-test-goto-task "Task 200")
           (org-entry-put (point) "Folder" "TESTFOLDER")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0) "Synced out 1 modified task from buf2 with folder")
+          (sleep-for 2)
 
           (set-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0) "Synced in 1 modified task into buf1")
+          (sleep-for 2)
 
           (org-toodledo-test-compare-tasks buf1 buf2 "Task 200")
 
           (org-toodledo-test-message "TEST: Cleanup")
           (org-toodledo-test-cleanup)
+          (sleep-for 2)
           )
         
 

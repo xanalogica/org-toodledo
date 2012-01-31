@@ -31,6 +31,7 @@
 ;;     :ToodledoLastSync: 1315343842
 ;;     :ToodledoLastEdit: 1315337478
 ;;     :ToodledoLastDelete: 1314972230
+;;     :OrgToodledoVersion: 2.3
 ;;     :END:
 ;;
 ;; This is referred to as the 'base Toodledo entry'.
@@ -105,9 +106,9 @@
 ;; | id             | Property :ToodledoID:  | If present, this task was previoiusly synced |
 ;; | title          | Heading                | Heading minus TODO state, priority and tags  |
 ;; | status         | TODO state             | See `org-toodledo-status-to-org-map'         |
-;; | startdate      | SCHEDULED              |                                              |
+;; | startdate      | SCHEDULED              | startdate/startime are GMT                   |
 ;; | starttime      | SCHEDULED              |                                              |
-;; | duedate        | DEADLINE               |                                              |
+;; | duedate        | DEADLINE               | duedate/duetime are GMT                      |
 ;; | duetime        | DEADLINE               |                                              |
 ;; | completed      | CLOSED                 | Timestamp when the task was marked completed |
 ;; | repeat         | Repeat interval        |                                              |
@@ -284,6 +285,28 @@
 ;;   as a flat list at least for backup.
 ;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
 ;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
+;;
+;; 2012-01.30  (cjwhite) - Version 2.3
+;; - Bug fix - major problem found whereby sync / modified times would be off just slightly
+;;   when syncing local changes up to the server.  This would make it look like the local
+;;   task was still modified even after sending it up to the server.  As such, any changes
+;;   to the task on the server would result in duplicate tasks in org-mode on the next
+;;   sync, because that's how changes on both sides are handled.  As part of this fix
+;;   I completely eliminated the per task Modified and Sync properities as these are
+;;   pretty much unneeded because of the detection of changes by the hash code
+;; - Bug fix for startdate / duedate.  These were probably working ok, but may have
+;;   misbehaved if the timezone were more than 12h off GMT, which I think can only happen
+;;   in a very few rare cases.  
+;; - Fixed up the starttime / duetime.  Turns out that toodledo.com treats these times
+;;   like alarms, so a duetime of "7:00am" is 7am, regardless of what timezone you are
+;;   in.  That means you can change your timezone at will and the duetime is still
+;;   7am *local* time.  This is stored as an offset from midnight GMT on the due date.
+;; - Added a version variable / function `org-toodledo-version'.  This is checked on 
+;;   sync and may do some cleanup of things that have changed in various versions.  This
+;;   will make it easier down the road to detect what version someone is running as well.
+;; - Added some delays into the devtest -- seems it may have been syncing back and forth
+;;   too fast (within the same second) such that changes may not be perceived
+;; - Added a lot more debug messages to help with timing / sync problems
 
 ;;; Installation:
 ;;
@@ -309,5 +332,4 @@
 ;;             (local-set-key "\C-os" 'org-toodledo-sync)
 ;;             )
 ;;           )
-
 
