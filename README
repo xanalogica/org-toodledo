@@ -286,7 +286,7 @@
 ;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
 ;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 ;;
-;; 2012-01.30  (cjwhite) - Version 2.3
+;; 2012-01-30  (cjwhite) - Version 2.3
 ;; - Bug fix - major problem found whereby sync / modified times would be off just slightly
 ;;   when syncing local changes up to the server.  This would make it look like the local
 ;;   task was still modified even after sending it up to the server.  As such, any changes
@@ -307,6 +307,12 @@
 ;; - Added some delays into the devtest -- seems it may have been syncing back and forth
 ;;   too fast (within the same second) such that changes may not be perceived
 ;; - Added a lot more debug messages to help with timing / sync problems
+;;
+;; 2012-02-09  (cjwhite) - Version 2.4
+;; - Added new patch for url-http.  This should address at least some of the spurious
+;;   problems that caused an XML parse error.  If the XML response from the server
+;;   was just around 1200 bytes, url-http was not handling it properly and cutting off
+;;   the last few bytes.  See the Installation instructions below for installing the patches
 
 ;;; Installation:
 ;;
@@ -332,4 +338,30 @@
 ;;             (local-set-key "\C-os" 'org-toodledo-sync)
 ;;             )
 ;;           )
+;;
+;; 4. Install 2 patches for url-http.el (these are written for 23.3, but may
+;;    work for other versions, if not patch manually, as the diffs are
+;;    not that complex)
+;;
+;;    url-http.el.emacs-23.3.patch 
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592, 
+;;         involving attempted connection reuse
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931,
+;;         problem when sending a request with no data
+;;         
+;;    url-http.el.emacs-23.3.patch2 
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=10768
+;;         fixes a problem with responses that are barely longer than 1
+;;         TCP data packet (about 1200 bytes)
+;;    
+;;    To install the patches:
+;;       $ cd $emacs_install_dir/lisp/url
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch2
+;;
+;;    Then in emacs:
+;;       M-x byte-compile-file $emacs_install_dir/lisp/url/url-http.el
+;;
+;;    This patch seems to apply cleanly to 23.2 as well, but is not tested there.
+;; 
 

@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.3
+;; Version: 2.4
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -315,7 +315,7 @@
 ;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
 ;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 ;;
-;; 2012-01.30  (cjwhite) - Version 2.3
+;; 2012-01-30  (cjwhite) - Version 2.3
 ;; - Bug fix - major problem found whereby sync / modified times would be off just slightly
 ;;   when syncing local changes up to the server.  This would make it look like the local
 ;;   task was still modified even after sending it up to the server.  As such, any changes
@@ -336,6 +336,12 @@
 ;; - Added some delays into the devtest -- seems it may have been syncing back and forth
 ;;   too fast (within the same second) such that changes may not be perceived
 ;; - Added a lot more debug messages to help with timing / sync problems
+;;
+;; 2012-02-09  (cjwhite) - Version 2.4
+;; - Added new patch for url-http.  This should address at least some of the spurious
+;;   problems that caused an XML parse error.  If the XML response from the server
+;;   was just around 1200 bytes, url-http was not handling it properly and cutting off
+;;   the last few bytes.  See the Installation instructions below for installing the patches
 
 ;;; Installation:
 ;;
@@ -361,6 +367,32 @@
 ;;             (local-set-key "\C-os" 'org-toodledo-sync)
 ;;             )
 ;;           )
+;;
+;; 4. Install 2 patches for url-http.el (these are written for 23.3, but may
+;;    work for other versions, if not patch manually, as the diffs are
+;;    not that complex)
+;;
+;;    url-http.el.emacs-23.3.patch 
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592, 
+;;         involving attempted connection reuse
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931,
+;;         problem when sending a request with no data
+;;         
+;;    url-http.el.emacs-23.3.patch2 
+;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=10768
+;;         fixes a problem with responses that are barely longer than 1
+;;         TCP data packet (about 1200 bytes)
+;;    
+;;    To install the patches:
+;;       $ cd $emacs_install_dir/lisp/url
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch
+;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch2
+;;
+;;    Then in emacs:
+;;       M-x byte-compile-file $emacs_install_dir/lisp/url/url-http.el
+;;
+;;    This patch seems to apply cleanly to 23.2 as well, but is not tested there.
+;; 
 
 ;;; Code:
 
@@ -464,7 +496,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.3")
+(defconst org-toodledo-version "2.4")
 
 (defconst org-toodledo-fields 
   '( 
@@ -1881,12 +1913,13 @@ a list of alists of fields returned from the server."
                          "://api.toodledo.com/2/" method-name ".php"))
            (response (http-post-simple url send-params))
            parsed-response)
-      (org-toodledo-debug "---\norg-toodledo-call-method: '%s'\n  params: %S" url send-params)
+      (org-toodledo-debug "---\norg-toodledo-call-method: '%s'\n  params: %S\n  response: %S\n---" 
+                          url send-params response)
       (with-temp-buffer
         (insert (car response))
         (setq parsed-response (xml-parse-region (point-min) (point-max))))
       
-      (org-toodledo-debug "---\nResponse:\n%S\nParsed Response:\n%S---\n" response parsed-response)
+      (org-toodledo-debug "---\nParsed Response:\n%S---\n" response parsed-response)
 
       (when (eq 'error (caar parsed-response))
         (let ((msg (caddar parsed-response)))
