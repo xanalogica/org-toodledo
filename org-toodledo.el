@@ -501,7 +501,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.4")
+(defconst org-toodledo-version "2.5")
 
 (defconst org-toodledo-fields 
   '( 
@@ -662,7 +662,9 @@ Call this if switching accounts."
 (defun org-toodledo-check-version ()
   (save-excursion
     (let ((version "0"))
-      (org-toodledo-goto-base-entry)
+      (unless (org-toodledo-goto-base-entry)
+        (org-toodledo-initialize))
+
       (setq version (or (org-entry-get (point) "OrgToodledoVersion") "0"))
       (if (version= version org-toodledo-version)
           (message "org-toodledo buffer at latest version %s" version)
