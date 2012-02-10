@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.4
+;; Version: 2.5
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -342,6 +342,11 @@
 ;;   problems that caused an XML parse error.  If the XML response from the server
 ;;   was just around 1200 bytes, url-http was not handling it properly and cutting off
 ;;   the last few bytes.  See the Installation instructions below for installing the patches
+;;
+;; 2012-02-09  (cjwhite) - Version 2.5
+;; - Bug fix - requesting a token was still using https even if `org-toodledo-inhibit-https'
+;;   was set to true.
+;;
 
 ;;; Installation:
 ;;
@@ -706,7 +711,8 @@ retrieved. "
     (let ((response
            (with-current-buffer
                (url-retrieve-synchronously
-                (concat "https://api.toodledo.com/2/account/token.php?f=xml"
+                (concat (if org-toodledo-use-https "https" "http")
+                        "://api.toodledo.com/2/account/token.php?f=xml"
                         ";userid=" org-toodledo-userid
                         ";appid=" org-toodledo-appid
                         ";sig=" (md5 (concat org-toodledo-userid org-toodledo-apptoken))))
@@ -1909,7 +1915,7 @@ a list of alists of fields returned from the server."
     (aput 'send-params 'key (org-toodledo-key))
     (aput 'send-params 'f "xml")
     
-    (let* ((url (concat  (if org-toodledo-use-https "https" "http")
+    (let* ((url (concat  (if org-toodledo-inhibit-https "http" "https")
                          "://api.toodledo.com/2/" method-name ".php"))
            (response (http-post-simple url send-params))
            parsed-response)

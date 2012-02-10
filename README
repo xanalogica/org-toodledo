@@ -313,6 +313,11 @@
 ;;   problems that caused an XML parse error.  If the XML response from the server
 ;;   was just around 1200 bytes, url-http was not handling it properly and cutting off
 ;;   the last few bytes.  See the Installation instructions below for installing the patches
+;;
+;; 2012-02-09  (cjwhite) - Version 2.5
+;; - Bug fix - requesting a token was still using https even if `org-toodledo-inhibit-https'
+;;   was set to true.
+;;
 
 ;;; Installation:
 ;;
