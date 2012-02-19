@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.5
+;; Version: 2.6
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -197,10 +197,26 @@
 ;; yields a flat list of tasks on the server.  Note that the hierarchy
 ;; in the org file is still maintained even though not on the server.
 ;;
-;; NOTE: A 3-level hierarchy of TODO items will not work and will 
-;; probably cause an error during sync.  It's no problem to use
-;; a much deeper hierarchy of org items, as long as only the last
-;; two are actually TODO items.
+;; NOTE: A hierarchy of TODO items of more than 2 levels is not supported
+;; by the server.  If 3 or more levels is present, all children will
+;; appear directly beneath the top-most TODO item:
+;;
+;;   org-mode:  
+;;      * TODO Level 1 item
+;;      ** WAITING Level 1.1 item
+;;      *** DONE Level 1.1.1 item
+;;      ** DONE Level 1.2 item
+;;      *** DONE Level 1.2.1 item
+;;
+;;   server:
+;;      * TODO Level 1 item
+;;      ** WAITING Level 1.1 item
+;;      ** DONE Level 1.1.1 item
+;;      ** DONE Level 1.2 item
+;;      ** DONE Level 1.2.1 item
+;;
+;; Note that the hierarchy is preserved in the org-mode file, it just
+;; displays with the children flattened on the server.
 ;;
 ;; MISCELLANEOUS NOTES
 ;; -------------------
@@ -269,7 +285,6 @@
 ;; - Added customization variable `org-toodledo-sync-import-new-tasks'
 ;;
 ;; 2011-09-24  (cjwhite)
-;;
 ;; - Use https if pro subscription and patch installed (url-http appears broken
 ;;   for POSTs with data and https, at least on my box).  To enable, apply the 
 ;;   patch as follows:
@@ -309,10 +324,13 @@
 ;;   server, but the displayed time on toodledo.com and in apps (at least iPad app) is
 ;;   the time component in GMT, not the timezone set in the account settings.  Waiting
 ;;   for a response from toodledo.com on this.
+;;
 ;; - Added `org-toodledo-flatten-all-tasks' which disables parent/child tasking.
 ;;   Set to true if you have more than 2 levels and wish to sync tasks to the server
 ;;   as a flat list at least for backup.
+;;
 ;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
+;;
 ;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 ;;
 ;; 2012-01-30  (cjwhite) - Version 2.3
@@ -323,18 +341,23 @@
 ;;   sync, because that's how changes on both sides are handled.  As part of this fix
 ;;   I completely eliminated the per task Modified and Sync properities as these are
 ;;   pretty much unneeded because of the detection of changes by the hash code
+;;
 ;; - Bug fix for startdate / duedate.  These were probably working ok, but may have
 ;;   misbehaved if the timezone were more than 12h off GMT, which I think can only happen
 ;;   in a very few rare cases.  
+;;
 ;; - Fixed up the starttime / duetime.  Turns out that toodledo.com treats these times
 ;;   like alarms, so a duetime of "7:00am" is 7am, regardless of what timezone you are
 ;;   in.  That means you can change your timezone at will and the duetime is still
 ;;   7am *local* time.  This is stored as an offset from midnight GMT on the due date.
+;;
 ;; - Added a version variable / function `org-toodledo-version'.  This is checked on 
 ;;   sync and may do some cleanup of things that have changed in various versions.  This
 ;;   will make it easier down the road to detect what version someone is running as well.
+;;
 ;; - Added some delays into the devtest -- seems it may have been syncing back and forth
 ;;   too fast (within the same second) such that changes may not be perceived
+;;
 ;; - Added a lot more debug messages to help with timing / sync problems
 ;;
 ;; 2012-02-09  (cjwhite) - Version 2.4
@@ -347,6 +370,22 @@
 ;; - Bug fix - requesting a token was still using https even if `org-toodledo-inhibit-https'
 ;;   was set to true.
 ;;
+;; 2012-02-19  (cjwhite) - Version 2.6
+;; - Added `org-toodledo-agenda-mark-task-deleted' function and suggested binding
+;;   to mark tasks deleted from agenda mode.  See Installation for info
+;;
+;; - When a task is marked for deleted, move the task to a task titled
+;;   "Deleted Tasks" to get it out of the way
+;;
+;; - Handle more than 2-levels of hierarchy by flatting all children.  The hierarchy
+;;   will be preserved.  See SUBTASKS above for more details.
+;;
+;; - Realign all tags after sync according to the width of the current window
+;;
+;; - Better handling of 'duplicate' tasks -- When a task has been
+;;   modified locally and on the server, the user is prompted to
+;;   resolve the difference by selecting the local copy, the server
+;;   copy, or editing and resolving manually
 
 ;;; Installation:
 ;;
@@ -370,6 +409,12 @@
 ;;             (local-unset-key "\C-o")
 ;;             (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
 ;;             (local-set-key "\C-os" 'org-toodledo-sync)
+;;             )
+;;           )
+;;    (add-hook 'org-agenda-mode-hook
+;;           (lambda ()
+;;             (local-unset-key "\C-o")
+;;             (local-set-key "\C-od" 'org-toodledo-agenda-mark-task-deleted)
 ;;             )
 ;;           )
 ;;
@@ -501,7 +546,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.5")
+(defconst org-toodledo-version "2.6")
 
 (defconst org-toodledo-fields 
   '( 
@@ -931,8 +976,14 @@ Return a list of task alists."
         ;; after all tasks above this point have been processed.  That means parent
         ;; tasks either have a toodledoid, or were assigned a tmp-ref
         (let* ((task (org-toodledo-parse-current-task))
-               (hash (org-entry-get (point) "Hash"))
+
+               ;; This will be null if the task is not yet known to Toodledo
+               (hash (org-entry-get (point) "Hash")) 
+
+               ;; Computed hash based on the current state of the task
                (computed-hash (org-toodledo-compute-hash nil task))
+
+               ;; If flagged as deleted, the task was already in Toodledo and should be flushed
                (deleted (org-entry-get (point) "Deleted"))
 
                ;; Find the parent task, if any -- this is not necessarily the 
@@ -948,7 +999,7 @@ Return a list of task alists."
                ;; Note -- subtasks require pro account subscription
                (parent-task (if (and (org-toodledo-pro)
                                      (not org-toodledo-flatten-all-tasks))
-                                (cdr (assoc (save-excursion (if (org-up-heading-safe)
+                                (cdr (assoc (save-excursion (if (org-toodledo-up-to-base-parent)
                                                                 (elt (org-heading-components) 4)))
                                             tasks-by-title-alist))))
                (parent-ref (cdr (assoc "ref" parent-task)))
@@ -956,6 +1007,14 @@ Return a list of task alists."
                )
 
           (org-toodledo-debug "Examining task: %S" task)
+          (org-toodledo-debug "  parent task: %S" parent-task)
+
+          ;; If parent-task has a parent, clear this task's parent,
+          ;; as Toodledo only supports one level of depth
+          (when (and parent-task (not (string= (cdr (assoc "parent" parent-task)) "0")))
+            (setq parent-task nil
+                  parent-ref nil
+                  parent-id nil))
 
           (cond 
            ;; Collect a "new" task
@@ -1173,10 +1232,13 @@ Return a list of task alists."
         (org-entry-put (point) "ToodledoLastEdit" (cdr (assoc "lastedit_task" account-info)))
         (org-entry-put (point) "ToodledoLastDelete" (cdr (assoc "lastdelete_task" account-info))))
       
+      (let ((org-tags-column (- 5 (window-width)))) (org-align-all-tags))
+      
       (when columns-pos
         (goto-char columns-pos)
         (org-columns))
 
+      
       (let* ((imod (length server-edit-tasks))
              (idel (length server-delete-tasks))
              (onew new-tasks-count)
@@ -1308,12 +1370,73 @@ an alist of the task fields."
         (aput 'info "parent" (org-toodledo-get-parent-id))
         info))))
 
+(defun org-toodledo-diff-tasks (local-task server-task)
+  "Show the user two buffes side by side for LOCAL-TASK and SERVER-TASK.
+Ask to pick one, the other, or edit.  Return value is the parsed task."
+
+  (let ((local-buf (get-buffer-create "*Local Task*"))
+        (server-buf (get-buffer-create "*Server Task*"))
+        task
+        key
+        (f (lambda (label buf task)
+             (switch-to-buffer buf)
+             (set-buffer buf)
+             (erase-buffer)
+             (org-mode)
+             (insert "# " label " task\n")
+             (org-toodledo-insert-new-task task 'tmp nil)
+             
+             ;; Need to handle parent-id specially, since it's actually not saved
+             ;; as a property, it's passively detected by heirarchy
+             (org-entry-put (point) "Parent-id" (org-toodledo-task-parent task))
+             (org-show-subtree)
+             )))
+    (save-window-excursion
+      (delete-other-windows)
+      (funcall f "Server" server-buf server-task)
+
+      (split-window-horizontally)
+      (funcall f "Local" local-buf local-task)
+
+      (while (not key)
+        (setq key (read-char "Local and Server tasks have both been modified, use [l]ocal, [s]erver, or [e]dit? "))
+        (cond 
+         ((eq ?l key) (set-buffer local-buf))
+         ((eq ?s key) (set-buffer server-buf))
+         ((eq ?e key) 
+          (beginning-of-buffer)
+          (insert "# Manually edit changes in this or the other buffer\n# Press C-c C-c in one buffer to continue\n")
+          (other-window 1)
+          (beginning-of-buffer)
+          (insert "# Manually edit changes in this or the other buffer\n# Press C-c C-c in one buffer to continue\n")
+          (local-set-key "\C-c\C-c" 'exit-recursive-edit)
+          (recursive-edit)
+          )
+         (t (beep) (setq key nil))))
+      (beginning-of-buffer)
+      (re-search-forward (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
+      (setq task (org-toodledo-parse-current-task))
+      ;; Recover the parent-id
+      (aput 'task "parent" (org-entry-get (point) "Parent-id"))
+      )
+    (kill-buffer local-buf)
+    (kill-buffer server-buf)
+    task
+    )
+  )
+
+(defun org-toodledo-up-to-base-parent ()
+  (let ((has-parent nil))
+    (while (org-up-heading-safe)
+      (setq has-parent t))
+    has-parent))
+
 (defun org-toodledo-get-parent-id ()
   "Return the ToodledoID of the immediate parent task.  Requires Pro account subscription"
   (save-excursion 
     (or (if (and (org-toodledo-pro) 
                  (not org-toodledo-flatten-all-tasks)
-                 (org-up-heading-safe))
+                 (org-toodledo-up-to-base-parent))
             (org-entry-get nil "ToodledoID")) 
         "0")))
 
@@ -1346,19 +1469,18 @@ an alist of the task fields."
             )
            
            (touched
-            (org-toodledo-debug "Task modified locally and on server, keeping both")
-            (message "Task %s was modified locally and on the server, both are saved" 
-                     (org-toodledo-task-id task))
-            (org-toodledo-insert-new-task task t)
-            ;; XXXCJ - how to communicate this "duplicate" back to the user?
-            ;;   - on sync, give user a number of "dups"?
-            ;;   - add a property or a tag indicating its a dup?
-            ;;   - on sync, check for dups and don't sync until the user resolves all dups
-            ;;   - have a special check for dups function, lets user pick one or the other or edit
-            )
+            (org-toodledo-debug "Task modified locally and on server, asking user to resolve")
+            (let ((local-task (org-toodledo-parse-current-task)))
+              (setq task (org-toodledo-diff-tasks local-task task))
+              (org-toodledo-debug "resolved task: %S" task)              
+              (org-toodledo-insert-new-task task t t)
+
+              ;; Clear hash, this will force the resolved result to get sync'd back to the server
+              (org-entry-put (point) "Hash" "0")
+              ))
            )
           )
-
+      
       ;; Not found, add as new
       (org-toodledo-debug "Task not found locally, inserting as new")
       (if (and org-toodledo-sync-import-new-tasks
@@ -1425,8 +1547,8 @@ an alist of the task fields."
            (folder (org-toodledo-task-folder task))
            (goal (org-toodledo-task-goal task))
            (length (org-toodledo-task-length task))
-           (old-parent (if at-point (org-toodledo-get-parent-id)))
-           (level (if at-point (elt (org-heading-components) 0)))
+           (old-parent (if (eq at-point t) (org-toodledo-get-parent-id)))
+           (level (if (eq at-point t) (elt (org-heading-components) 0)))
            pos deadline scheduled
            )
 
@@ -1439,6 +1561,9 @@ an alist of the task fields."
       
       (cond
        ;; Always put this task as a direct child if parent is present
+       ((eq at-point 'tmp)
+        (setq level 1))
+
        ((and parent (not (string= parent "0")))
         ;; ...but only move if the parent changed!
         (when (not (string= parent old-parent))
@@ -1564,8 +1689,12 @@ and from the local org file on the next sync"
       (org-back-to-heading t)
       (let ((task (org-toodledo-parse-current-task))
             response)
-        (if (> (length (org-toodledo-task-id task)) 0)
-            (org-entry-put (point) "Deleted" "1"))
+        (when (> (length (org-toodledo-task-id task)) 0)
+          (org-entry-put (point) "Deleted" "1")
+          (org-back-to-heading t)
+          (org-set-tags-to "DELETED")
+          (org-toodledo-refile-current-task-to-heading "Deleted Tasks" t)
+          )
         )
       
       (when columns-pos
@@ -1832,6 +1961,30 @@ return position, otherwise a marker."
   )
 
 ;;
+;; Agenda Mode Hooks
+;;
+
+(defun org-toodledo-agenda-mark-task-deleted ()
+  "Mark the task as deleted from an org-agenda  buffer"
+  (interactive)
+  (org-agenda-check-type t 'agenda 'tags)
+  (org-agenda-check-no-diary)
+  (let* ((marker (or (org-get-at-bol 'org-marker)
+		     (org-agenda-error)))
+	 (buffer (marker-buffer marker))
+	 (pos (marker-position marker)))
+    (org-with-remote-undo buffer
+     (with-current-buffer buffer
+       (widen)
+       (goto-char pos)
+       (org-toodledo-mark-task-deleted)
+       )
+     )
+    (org-agenda-redo)
+    )
+  )
+  
+;;
 ;; Save Hook
 ;;
 (defun org-toodledo-save-hook ()
@@ -2007,7 +2160,7 @@ Reload if FORCE is non-nil.")
    (xml-get-children (car xml-resp) tag)))
   
 (defun org-toodledo-get-folders (&optional force)
-   "Store an alist of (title . id) in `org-toodledo-folders'.
+   "Store an alist of (folder . id) in `org-toodledo-folders'.
 Reload if FORCE is non-nil."
    (if (or force (null org-toodledo-folders))
        (setq org-toodledo-folders
@@ -2059,8 +2212,22 @@ Reload if FORCE is non-nil."
     )
   )
 
-(defun org-toodledo-refile-current-task-to-heading (heading)
-  (let ((marker (org-find-exact-headline-in-buffer heading)))
+(defun org-toodledo-refile-current-task-to-heading (heading &optional parent-heading)
+  (let ((marker (org-find-exact-headline-in-buffer heading)) level)
+    (when (and (not marker) parent-heading)
+      (save-excursion
+        (cond
+         ((eq t parent-heading)
+          (org-toodledo-goto-base-entry))
+         (t
+          (org-find-exact-headline-in-buffer parent-heading)))
+        
+        (setq level (1+ (elt (org-heading-components) 0)))
+        (org-end-of-subtree t t)
+        (insert (make-string level ?*) " " heading "\n")
+        (setq marker (org-find-exact-headline-in-buffer heading))
+        )
+      )
     (if marker
         (org-toodledo-refile-current-task marker)
       (error (format "No such heading %s" heading)))))

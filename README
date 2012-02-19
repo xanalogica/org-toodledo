@@ -168,10 +168,26 @@
 ;; yields a flat list of tasks on the server.  Note that the hierarchy
 ;; in the org file is still maintained even though not on the server.
 ;;
-;; NOTE: A 3-level hierarchy of TODO items will not work and will 
-;; probably cause an error during sync.  It's no problem to use
-;; a much deeper hierarchy of org items, as long as only the last
-;; two are actually TODO items.
+;; NOTE: A hierarchy of TODO items of more than 2 levels is not supported
+;; by the server.  If 3 or more levels is present, all children will
+;; appear directly beneath the top-most TODO item:
+;;
+;;   org-mode:  
+;;      * TODO Level 1 item
+;;      ** WAITING Level 1.1 item
+;;      *** DONE Level 1.1.1 item
+;;      ** DONE Level 1.2 item
+;;      *** DONE Level 1.2.1 item
+;;
+;;   server:
+;;      * TODO Level 1 item
+;;      ** WAITING Level 1.1 item
+;;      ** DONE Level 1.1.1 item
+;;      ** DONE Level 1.2 item
+;;      ** DONE Level 1.2.1 item
+;;
+;; Note that the hierarchy is preserved in the org-mode file, it just
+;; displays with the children flattened on the server.
 ;;
 ;; MISCELLANEOUS NOTES
 ;; -------------------
@@ -240,7 +256,6 @@
 ;; - Added customization variable `org-toodledo-sync-import-new-tasks'
 ;;
 ;; 2011-09-24  (cjwhite)
-;;
 ;; - Use https if pro subscription and patch installed (url-http appears broken
 ;;   for POSTs with data and https, at least on my box).  To enable, apply the 
 ;;   patch as follows:
@@ -280,10 +295,13 @@
 ;;   server, but the displayed time on toodledo.com and in apps (at least iPad app) is
 ;;   the time component in GMT, not the timezone set in the account settings.  Waiting
 ;;   for a response from toodledo.com on this.
+;;
 ;; - Added `org-toodledo-flatten-all-tasks' which disables parent/child tasking.
 ;;   Set to true if you have more than 2 levels and wish to sync tasks to the server
 ;;   as a flat list at least for backup.
+;;
 ;; - Improved debug logging, use `org-toodledo-toggle-debug' to turn on debug logging
+;;
 ;; - Updated `org-toodledo-run-tests' to use a test account instead of the users account.
 ;;
 ;; 2012-01-30  (cjwhite) - Version 2.3
@@ -294,18 +312,23 @@
 ;;   sync, because that's how changes on both sides are handled.  As part of this fix
 ;;   I completely eliminated the per task Modified and Sync properities as these are
 ;;   pretty much unneeded because of the detection of changes by the hash code
+;;
 ;; - Bug fix for startdate / duedate.  These were probably working ok, but may have
 ;;   misbehaved if the timezone were more than 12h off GMT, which I think can only happen
 ;;   in a very few rare cases.  
+;;
 ;; - Fixed up the starttime / duetime.  Turns out that toodledo.com treats these times
 ;;   like alarms, so a duetime of "7:00am" is 7am, regardless of what timezone you are
 ;;   in.  That means you can change your timezone at will and the duetime is still
 ;;   7am *local* time.  This is stored as an offset from midnight GMT on the due date.
+;;
 ;; - Added a version variable / function `org-toodledo-version'.  This is checked on 
 ;;   sync and may do some cleanup of things that have changed in various versions.  This
 ;;   will make it easier down the road to detect what version someone is running as well.
+;;
 ;; - Added some delays into the devtest -- seems it may have been syncing back and forth
 ;;   too fast (within the same second) such that changes may not be perceived
+;;
 ;; - Added a lot more debug messages to help with timing / sync problems
 ;;
 ;; 2012-02-09  (cjwhite) - Version 2.4
@@ -318,6 +341,22 @@
 ;; - Bug fix - requesting a token was still using https even if `org-toodledo-inhibit-https'
 ;;   was set to true.
 ;;
+;; 2012-02-19  (cjwhite) - Version 2.6
+;; - Added `org-toodledo-agenda-mark-task-deleted' function and suggested binding
+;;   to mark tasks deleted from agenda mode.  See Installation for info
+;;
+;; - When a task is marked for deleted, move the task to a task titled
+;;   "Deleted Tasks" to get it out of the way
+;;
+;; - Handle more than 2-levels of hierarchy by flatting all children.  The hierarchy
+;;   will be preserved.  See SUBTASKS above for more details.
+;;
+;; - Realign all tags after sync according to the width of the current window
+;;
+;; - Better handling of 'duplicate' tasks -- When a task has been
+;;   modified locally and on the server, the user is prompted to
+;;   resolve the difference by selecting the local copy, the server
+;;   copy, or editing and resolving manually
 
 ;;; Installation:
 ;;
@@ -341,6 +380,12 @@
 ;;             (local-unset-key "\C-o")
 ;;             (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
 ;;             (local-set-key "\C-os" 'org-toodledo-sync)
+;;             )
+;;           )
+;;    (add-hook 'org-agenda-mode-hook
+;;           (lambda ()
+;;             (local-unset-key "\C-o")
+;;             (local-set-key "\C-od" 'org-toodledo-agenda-mark-task-deleted)
 ;;             )
 ;;           )
 ;;
