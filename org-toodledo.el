@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.6
+;; Version: 2.6.1
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -386,6 +386,9 @@
 ;;   modified locally and on the server, the user is prompted to
 ;;   resolve the difference by selecting the local copy, the server
 ;;   copy, or editing and resolving manually
+;;
+;; 2012-02-19  (cjwhite) - Version 2.6.1
+;; - Fix for use of http vs https
 
 ;;; Installation:
 ;;
@@ -546,7 +549,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.6")
+(defconst org-toodledo-version "2.6.1")
 
 (defconst org-toodledo-fields 
   '( 
@@ -755,15 +758,22 @@ retrieved. "
       org-toodledo-token
     
     ;; Else retrieve a new token
-    (let ((response
-           (with-current-buffer
-               (url-retrieve-synchronously
-                (concat (if org-toodledo-use-https "https" "http")
-                        "://api.toodledo.com/2/account/token.php?f=xml"
-                        ";userid=" org-toodledo-userid
-                        ";appid=" org-toodledo-appid
-                        ";sig=" (md5 (concat org-toodledo-userid org-toodledo-apptoken))))
-             (xml-parse-region (point-min) (point-max)))))
+    (let* ((request-url (concat (if org-toodledo-inhibit-https "http" "https")
+                                "://api.toodledo.com/2/account/token.php?f=xml"
+                                ";userid=" org-toodledo-userid
+                                ";appid=" org-toodledo-appid
+                                ";sig=" (md5 (concat org-toodledo-userid org-toodledo-apptoken))))
+           response)
+      (org-toodledo-debug "org-toodledo-token: '%s'" request-url)
+      (setq response
+            (with-current-buffer
+                (url-retrieve-synchronously
+                 (concat (if org-toodledo-inhibit-https "http" "https")
+                         "://api.toodledo.com/2/account/token.php?f=xml"
+                         ";userid=" org-toodledo-userid
+                         ";appid=" org-toodledo-appid
+                         ";sig=" (md5 (concat org-toodledo-userid org-toodledo-apptoken))))
+              (xml-parse-region (point-min) (point-max))))
       (if (equal (car (car response)) 'error)
 	  (progn
 	    (setq org-toodledo-token nil
@@ -2070,17 +2080,17 @@ a list of alists of fields returned from the server."
     (aput 'send-params 'key (org-toodledo-key))
     (aput 'send-params 'f "xml")
     
-    (let* ((url (concat  (if org-toodledo-inhibit-https "http" "https")
+    (let* ((url (concat  (if org-toodledo-use-https "https" "http")
                          "://api.toodledo.com/2/" method-name ".php"))
            (response (http-post-simple url send-params))
            parsed-response)
-      (org-toodledo-debug "---\norg-toodledo-call-method: '%s'\n  params: %S\n  response: %S\n---" 
+      (org-toodledo-debug "org-toodledo-call-method: '%s'\n  params: %S\n  response: %S\n---" 
                           url send-params response)
       (with-temp-buffer
         (insert (car response))
         (setq parsed-response (xml-parse-region (point-min) (point-max))))
       
-      (org-toodledo-debug "---\nParsed Response:\n%S---\n" response parsed-response)
+      (org-toodledo-debug "org-toodledo-call-method: (continued)\n  parsed response:\n%S---\n" response parsed-response)
 
       (when (eq 'error (caar parsed-response))
         (let ((msg (caddar parsed-response)))

@@ -357,6 +357,9 @@
 ;;   modified locally and on the server, the user is prompted to
 ;;   resolve the difference by selecting the local copy, the server
 ;;   copy, or editing and resolving manually
+;;
+;; 2012-02-19  (cjwhite) - Version 2.6.1
+;; - Fix for use of http vs https
 
 ;;; Installation:
 ;;
