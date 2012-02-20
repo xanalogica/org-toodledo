@@ -120,6 +120,8 @@
 ;; | priority       | Priority               | 3=>A, 2=>B, 1=>C, -1,0 => D                  |
 ;; | note           | Body                   | Body of the task minus the properties        |
 ;; | length         | Effort                 |                                              |
+;; | parent         |                        | Links tasks parent/child                     |
+;; | tag            | Tag                    | org-mode tags, note context is also a tag    |
 ;;
 ;; TODO STATES
 ;; -----------
@@ -214,32 +216,16 @@
 ;;
 ;; ** TODO Feature Requests: highest priority at top
 ;; 
-;; [ ] Trap 3-levels of TODO tasks and warn the user or just flatten
-;;     the list.  (cjwhite)
-;;
-;; [ ] Some how indicate that a task has been marked deleted.  Right now
-;;     marking a task deleted puts a property in the drawer, which
-;;     is hidden.  Maybe add a TODO status of DELETED?  Move to a new
-;;     "DELETED" sub-heading?  (cjwhite)
-;;     
-;; [ ] It'd be great to allow notes to contain asterisks.  Make
-;;     "[CR]** " the special key?  I use multiple asterisks all the
-;;     time in notes.  (stophlong)
-;; 
 ;; [ ] access to toodledo via proxy would also be good for those
 ;;     inside proxy based firewalls. (stophlong)
 ;; 
-;; [ ] Better handling of 'duplicate' tasks -- those modified locally and
-;;     on the server.  Perhaps tag them with a property and then on sync
-;;     check for them asking the user to resolve. (cjwhite)
-;;
 ;; [ ] Add a 'purge-completed-tasks' function -- once these tasks have
 ;;     been synced to the server, kill them locally (since they are
 ;;     backed up on toodledo).  Alternatively, move them to an archive
 ;;     file.  (cjwhite)
 ;;
-;; [ ] Option to restrict synchronization to just tasks under the the
-;;     base Toodledo entry.  (cjwhite)
+;; [ ] Option to restrict synchronization to just sync tasks under the
+;;     the base Toodledo entry.  (cjwhite)
 ;;
 ;; [ ] Support tasks across all agenda files.  (cjwhite)
 ;;
@@ -360,6 +346,25 @@
 ;;
 ;; 2012-02-19  (cjwhite) - Version 2.6.1
 ;; - Fix for use of http vs https
+;;
+;; 2012-02-20  (cjwhite) - Version 2.7
+;; - Added support for tags, they are added as org-mode tags.
+;;
+;; - Fixed handling of tasks with an embedded '*' - this would
+;;   completely mess things up of the '*' was the first char of
+;;   a line
+;;  
+;; - Added customization `org-toodledo-indent-task-note', set to t
+;;   by default.  This indents the note according to the task level.
+;;   This has a cleaner look and reduces the chance of errors like
+;;   the above with '*' as the first char.
+;;
+;; - Better detection of actual note text, eliminating blank lines
+;;
+;; - Fixed handling of "Invalid Key" error that indicates the token
+;;   needs to be refreshed
+;;
+;; - Fix bug for subtasks if parent is not at top-level
 
 ;;; Installation:
 ;;
