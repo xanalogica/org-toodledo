@@ -365,6 +365,27 @@
 ;;   needs to be refreshed
 ;;
 ;; - Fix bug for subtasks if parent is not at top-level
+;;
+;; 2012-03-13  (cjwhite) - Version 2.8
+;; - Significantly better error handling for adding, editng and deleting
+;;   tasks during synchronization.  If errors occurred, only the offending
+;;   task should be affected, allowing all other tasks to be synced.  The
+;;   specific error message is logged for better debugging.
+;;
+;; - Added customization `org-toodledo-folder-support-mode'.  Setting this
+;;   to `heading' will create heading tasks according to the folder name
+;;   and put all tasks in that folder as child tasks of the heading.  
+;;   No support yet for creating folders in org mode, create the folders
+;;   on toodledo.com first and put at least one task in the folder.  This
+;;   feature is somewhat experimental.
+;; 
+;; - Improved handling of token expiration / invalid key errors
+;; 
+;; - Added simulation mode for testing without actually hitting the server. 
+;;   Allows simulating error conditions that are potentially hard to 
+;;   reproduce with a real connection to the server.  See org-toodledo-sim.el
+;;   and org-toodledo-test.el where sim calls are used.
+;;
 
 ;;; Installation:
 ;;
