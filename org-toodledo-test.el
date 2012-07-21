@@ -10,7 +10,7 @@ in the same state as when the test fails.")
   (interactive)
 
   (save-excursion
-    (setq org-toodledo-log-level 1)
+    (setq org-toodledo-log-level 3)
     (set-buffer (get-buffer-create "*Org-toodledo-log*"))
     (erase-buffer)
 
@@ -270,9 +270,7 @@ in the same state as when the test fails.")
           ;; Start with 2 tasks on the server
           (org-toodledo-test-message "TEST: creating 2 tasks in db to start")
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")))
-          ;;(org-toodledo-sim-advance-time)
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 2")))
-          ;;(org-toodledo-sim-advance-time)
           
           ;; Sync them into buf1
           (org-toodledo-test-message "TEST: initializing buf1")
@@ -280,21 +278,18 @@ in the same state as when the test fails.")
           (org-toodledo-test-setup-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
                                    "Synced in initial tasks 1,2 into buf1")
-          ;;(org-toodledo-sim-advance-time)
 
           ;; Add 2 more tasks
           (org-toodledo-test-message "TEST: adding tasks 3,4 to buf1")
           (org-toodledo-test-create-tasks 2 2 3)
           (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0) 
                                    "Synced out new tasks 3,4 from buf1")
-          ;;(org-toodledo-sim-advance-time)
 
           (org-toodledo-test-message "TEST: Syncing all 4 tasks into buf2")
           (set-buffer buf2)
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(4 4 0 0 0 0 0) 
                                    "Synced in initial tasks 1-4 into buf2")
-          ;;(org-toodledo-sim-advance-time)
           (org-toodledo-test-compare-tasks buf1 buf2 
                                            "Task 1" "Task 2" "Task 3" "Task 4")
 
@@ -306,14 +301,12 @@ in the same state as when the test fails.")
           (setq org-toodledo-sim-invalid-key t) ;; inject and invalid-key, this should be handled silently
           (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0) 
                                    "Synced out new tasks 5,6 from buf2")
-          ;;(org-toodledo-sim-advance-time)
 
           ;; Pull those new tasks 5,6 into buf1
           (org-toodledo-test-message "TEST: Pulling 2 latest tasks back into buf1")
           (set-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-sync) '(2 2 0 0 0 0 0) 
                                    "Synced in new tasks 5,6 into buf1")
-          ;;(org-toodledo-sim-advance-time)
 
           ;; Delete tasks 2,4,6 in buf1
           (org-toodledo-test-message "TEST: Deleting 3 tasks in buf1")
@@ -325,14 +318,12 @@ in the same state as when the test fails.")
           
           (org-toodledo-test-equal (org-toodledo-sync) '(3 0 0 0 0 3 0) 
                                    "Synced out deleted tasks 2,4,6 from buf1")
-          ;;(org-toodledo-sim-advance-time)
 
           ;; Sync in the deleted tasks into buf2
           (org-toodledo-test-message "TEST: Syncing 3 deleted tasks in buf2")
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(3 0 3 0 0 0 0) 
                                    "Synced in deleted tasks 2,4,6 into buf2")
-          ;;(org-toodledo-sim-advance-time)
 
           ;; Delete task 1 on the server *and* in buf1, and attempt a sync
           ;; which will cause an "Invalid ID error"
@@ -378,6 +369,34 @@ in the same state as when the test fails.")
           (insert-string " simerror=9")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 1) 
                                    "Attempted to sync out task 7 from buf2 with error")
+          )
+        
+        ;; 
+        ;; Simulated server tests
+        ;;
+        (when (or (member 'sim-hier tests) (null tests))
+          (setq org-toodledo-sim-curtime 1
+                org-toodledo-sim-lastedit0-task 0
+                org-toodledo-sim-lastdelete-task 0
+                org-toodledo-sim-db-tasks nil
+                org-toodledo-sim-db-deleted nil
+                org-toodledo-sim-pro 1
+                org-toodledo-sim-mode t)
+            
+          ;; Start with 2 tasks on the server
+          (org-toodledo-test-message "TEST: creating 2 tasks in db to start")
+          (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")
+                                                                    '("id" . "10010")))
+          (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 2")
+                                                                    '("id" . "10011")
+                                                                    '("parent" . "10010")))
+          
+          ;; Sync them into buf1
+          (org-toodledo-test-message "TEST: initializing buf1")
+          (set-buffer buf1)
+          (org-toodledo-test-setup-buffer buf1)
+          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
+                                   "Synced in initial tasks 1,2 into buf1")
           )
         
         ;; All done

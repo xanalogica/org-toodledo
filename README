@@ -386,6 +386,17 @@
 ;;   reproduce with a real connection to the server.  See org-toodledo-sim.el
 ;;   and org-toodledo-test.el where sim calls are used.
 ;;
+;; 2012-07-21  (cjwhite) - Version 2.9
+;; - Added 'length' to the list of fields to ignore if 0 for computing
+;;   a hash
+;;
+;; - Removed deprecated/obsolete use of aput/adelete from assoc.el
+;; 
+;; - Hopefully finally fixed spurious issue where syncing resulted in
+;;   "Failed to find todo entry...".  When processing incoming tasks 
+;;   from the server, process parent tasks *then* child tasks.  It seems
+;;   in some cases the child task may show up first before the parent
+;;   is known.
 
 ;;; Installation:
 ;;

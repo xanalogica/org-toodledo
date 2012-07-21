@@ -168,23 +168,25 @@ Content-Type: application/xml
 ;;
 (defun org-toodledo-sim-db-new-task (task)
   (org-toodledo-sim-advance-time)
-  (let ((title (org-toodledo-task-title task))
-        id)
+  (let ((id (org-toodledo-task-id task))
+        (title (org-toodledo-task-title task)))
+        
     (cond
      ((string-match "simerror=\\([0-9]+\\)" title)
       (string-to-int (match-string 1 title)))
      
      (t
-      (setq id (int-to-string (setq org-toodledo-sim-id (1+ org-toodledo-sim-id))))
-      (aput 'task "id" id)
-      (aput 'task "modified" (int-to-string org-toodledo-sim-curtime))
+      (if (or (not id) (equal id "0"))
+          (setq id (int-to-string (setq org-toodledo-sim-id (1+ org-toodledo-sim-id)))))
+      (alist-put task "id" id)
+      (alist-put task "modified" (int-to-string org-toodledo-sim-curtime))
       (setq org-toodledo-sim-lastedit-task org-toodledo-sim-curtime)
-      (aput 'org-toodledo-sim-db-tasks id task)
+      (alist-put org-toodledo-sim-db-tasks id task)
       id))))
 
 (defun org-toodledo-sim-db-edit-task (task)
   (org-toodledo-sim-advance-time)
-  (let ((id (org-toodledo-task-title task))
+  (let ((id (org-toodledo-task-id task))
         (title (org-toodledo-task-title task)))
     (cond
      ((string-match "simerror=\\([0-9]+\\)" title)
@@ -195,9 +197,9 @@ Content-Type: application/xml
       7)
      
      (t
-      (aput 'task "modified" (int-to-string org-toodledo-sim-curtime))
+      (alist-put task "modified" (int-to-string org-toodledo-sim-curtime))
       (setq org-toodledo-sim-lastedit-task org-toodledo-sim-curtime)
-      (aput 'org-toodledo-sim-db-tasks id task)
+      (alist-put org-toodledo-sim-db-tasks id task)
       0))))
 
 (defun org-toodledo-sim-db-delete-task (id &optional dont-save)
@@ -207,9 +209,9 @@ Content-Type: application/xml
         (org-toodledo-debug "org-toodledo-sim-db-delete-task: task not found %S" id)
         nil)
     (org-toodledo-debug "org-toodledo-sim-db-delete-task: deleting task %S" id)
-    (adelete 'org-toodledo-sim-db-tasks id)
+    (alist-delete org-toodledo-sim-db-tasks id)
     (unless dont-save
-      (aput 'org-toodledo-sim-db-deleted id org-toodledo-sim-curtime)
+      (alist-put org-toodledo-sim-db-deleted id org-toodledo-sim-curtime)
       (setq org-toodledo-sim-lastdelete-task org-toodledo-sim-curtime))
     t))
 
@@ -240,9 +242,11 @@ Content-Type: application/xml
                  ("starttime" . "0")
                  ("length" . "0")
                  ("status" . "0")
-                 ("note" . ""))))
+                 ("note" . "")
+                 ("parent" . "0")
+                 )))
     (mapcar (lambda (pair)
-              (aput 'task (car pair) (cdr pair))) params)
+              (alist-put task (car pair) (cdr pair))) params)
     task))
 
 (provide 'org-toodledo-sim)
