@@ -104,7 +104,7 @@ The table lists the possible Toodledo fields and how they are
 mapped to org-mode style tasks:
 
 <table>
-<tr><td> Toodledo Field </td><td> Org-mode               </td><td> Comments                                     </td></tr>
+<tr><th> Toodledo Field </th><th> Org-mode               </th><th> Comments                                     </th></tr>
 <tr><td> id             </td><td> Property :ToodledoID:  </td><td> If present, this task was previoiusly synced </td></tr>
 <tr><td> title          </td><td> Heading                </td><td> Heading minus TODO state, priority and tags  </td></tr>
 <tr><td> status         </td><td> TODO state             </td><td> See `org-toodledo-status-to-org-map'         </td></tr>
@@ -185,6 +185,7 @@ org-mode:
     *** DONE Level 1.2.1 item
 
 server:
+
     * TODO Level 1 item
     ** WAITING Level 1.1 item
     ** DONE Level 1.1.1 item
@@ -278,23 +279,24 @@ Future Work
 
 TODO Feature Requests: highest priority at top
 
-[ ] access to toodledo via proxy would also be good for those
-    inside proxy based firewalls. (stophlong)
+* access to toodledo via proxy would also be good for those
+  inside proxy based firewalls. (stophlong)
 
-[ ] Add a 'purge-completed-tasks' function -- once these tasks have
-    been synced to the server, kill them locally (since they are
-    backed up on toodledo).  Alternatively, move them to an archive
-    file.  (cjwhite)
+* Add a 'purge-completed-tasks' function -- once these tasks have
+  been synced to the server, kill them locally (since they are
+  backed up on toodledo).  Alternatively, move them to an archive
+  file.  (cjwhite)
 
-[ ] Option to restrict synchronization to just sync tasks under the
-    the base Toodledo entry.  (cjwhite)
+* Option to restrict synchronization to just sync tasks under the
+  the base Toodledo entry.  (cjwhite)
 
-[ ] Support tasks across all agenda files.  (cjwhite)
+* Support tasks across all agenda files.  (cjwhite)
 
 Installation
 ============
 
 1. Required emacs packages:
+
      * `w3m' or `w3mexcerpt' -- see Notes below
      * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
 
@@ -303,29 +305,31 @@ Installation
 
 3. Put the following in your .emacs:
 
-   (push "<path-to-this-file>" load-path)
-   (require 'org-toodledo)
-   (setq org-toodledo-userid "<toodledo-userid>")      << *NOT* your email!
-   (setq org-toodledo-password "<toodled-password>")
-
-   ;; Useful key bindings for org-mode
-   (add-hook 'org-mode-hook
-          (lambda ()
-            (local-unset-key "\C-o")
-            (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
-            (local-set-key "\C-os" 'org-toodledo-sync)
-            )
-          )
-   (add-hook 'org-agenda-mode-hook
-          (lambda ()
-            (local-unset-key "\C-o")
-            (local-set-key "\C-od" 'org-toodledo-agenda-mark-task-deleted)
-            )
-          )
+        (push "<path-to-this-file>" load-path)
+        (require 'org-toodledo)
+        (setq org-toodledo-userid "<toodledo-userid>")      << *NOT* your email!
+        (setq org-toodledo-password "<toodled-password>")
+     
+        ;; Useful key bindings for org-mode
+        (add-hook 'org-mode-hook
+               (lambda ()
+                 (local-unset-key "\C-o")
+                 (local-set-key "\C-od" 'org-toodledo-mark-task-deleted)
+                 (local-set-key "\C-os" 'org-toodledo-sync)
+                 )
+               )
+        (add-hook 'org-agenda-mode-hook
+               (lambda ()
+                 (local-unset-key "\C-o")
+                 (local-set-key "\C-od" 'org-toodledo-agenda-mark-task-deleted)
+                 )
+               )
 
 4. Install 2 patches for url-http.el (these are written for 23.3, but may
    work for other versions, if not patch manually, as the diffs are
-   not that complex)
+   not that complex).  
+
+   Note: This may not be necessary for Emacs 24.
 
    url-http.el.emacs-23.3.patch 
       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592, 
