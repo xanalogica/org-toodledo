@@ -114,9 +114,8 @@
 ;; | repeat         | Repeat interval        |                                              |
 ;; | repeatfrom     |                        |                                              |
 ;; | context        | Tag                    | Context string "Work" becomes a tag :@Work:  |
-;; | modified       | Property :Modified:    | Timestamp when last modifed (set by server)  |
-;; | folder         | Property :Folder:      |                                              |
-;; | goal           | Property :Goal:        |                                              |
+;; | folder         | Prop :ToodledoFolder:  | Only used if not using headings for folders, see below  |
+;; | goal           | Prop :ToodledoGoal:    |                                              |
 ;; | priority       | Priority               | 3=>A, 2=>B, 1=>C, -1,0 => D                  |
 ;; | note           | Body                   | Body of the task minus the properties        |
 ;; | length         | Effort                 |                                              |
@@ -191,6 +190,53 @@
 ;; Note that the hierarchy is preserved in the org-mode file, it just
 ;; displays with the children flattened on the server.
 ;;
+;; FOLDERS
+;; -------
+;;
+;; Folders are supported in two modes based on the variable
+;; `org-toodledo-folder-support-mode`.  If nil, basic mode
+;; is used and the folder associated with a task is stored
+;; by name in the 'ToodledoFolder' property.
+;;
+;; If set to 'heading, the folders represent headings.  In 
+;; this mode, the folder is implicitly defined by moving
+;; up the outline tree to the first non-TODO item.  
+;;
+;; For example:
+;;
+;;   * TASKS
+;;   ** TODO Non-folder tasks
+;;   * Folder 1
+;;   ** TODO Task 1.1
+;;   ** TODO Task 1.2
+;;   * Folder 2
+;;   ** TODO Task 2.1
+;;   ** TODO Task 2.2
+;;
+;; All subtasks are assigned to the same folder.  Moving a task
+;; from one folder to another will change the folder as well. 
+;; The heading that represents the folder will get assigned a
+;; property 'ToodledoFolderID' that is the ID assigned by the 
+;; server for this folder.  
+;; 
+;; Since folder association is determined by hierarchy, the
+;; property 'ToodledoFolder' is no longer needed on a per task
+;; basis.  
+;;
+;; If you currently have an org-toodledo buffer with tasks and
+;; folders using basic mode (`org-toodledo-folder-support-mode` 
+;; set to nil), you can use the function:
+;;
+;;   M-x org-toodledo-switch-folder-support-mode-to-headings
+;;
+;; This will switch your setting over to 'heading and will 
+;; automatically move around TODO subtrees according to their
+;; assigned folder.  (This function has been tested, but I 
+;; suggest you backup your work before running it just in case...)
+;;
+;; Folder name changes are not yet handled.
+;; 
+;;
 ;; MISCELLANEOUS NOTES
 ;; -------------------
 ;;
@@ -210,6 +256,17 @@
 ;;
 ;;  - By default, save will ask to sync with Toodledo.  This can
 ;;    behavior can be changed via `org-toodledo-sync-on-save'.
+;;
+;; KNOWN ISSUES
+;; ------------
+;;
+;; - Attempting the following the change will fail:
+;;    * Task 1                 * Task 1
+;;    * Task 2       ==>       ** Task 2
+;;    ** Task 3                ** Task 3
+;;   The problem is that Task 2 is changed to a child before Task 3's
+;;   parent is changed, so the server rejects it because you can't 
+;;   can't have a 3-level heirarchy.
 ;;
 ;; FUTURE WORK
 ;; -----------
@@ -397,6 +454,20 @@
 ;;   from the server, process parent tasks *then* child tasks.  It seems
 ;;   in some cases the child task may show up first before the parent
 ;;   is known.
+;;
+;; 2013-03-24  (cjwhite) - Version 2.10
+;; - Renamed folder/goal properties to ToodledoFolder and ToodledoGoal
+;; 
+;; - Added `org-toodledo-reset` function to eliminate any trace of 
+;;   toodledo from an org file (great to use if you want to refresh
+;;   the server from your master org file)
+;;
+;; - Fixed a bug where parent/child tasks may not sync properly.  
+;;  
+;; - Improved folder support, works well now supporting creating folders
+;;   and moving tasks around to folders, including subtasks.
+;; 
+;; - Fixed a bug that was causing issues running tests
 
 ;;; Installation:
 ;;
