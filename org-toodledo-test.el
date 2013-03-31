@@ -152,6 +152,10 @@ in the same state as when the test fails.")
         ;; Folder tests
         ;;
         (when (or (member 'folder tests) (null tests))
+          
+          ;; Support-mode - folder is just property
+          (setq org-toodledo-folder-support-mode nil)
+
           (org-toodledo-test-setup-buffer buf2)
           (org-toodledo-initialize "TASKS")
           (sit-for 2)
@@ -171,7 +175,7 @@ in the same state as when the test fails.")
           (sit-for 2)
 
           (org-toodledo-test-goto-task "Task 200")
-          (org-entry-put (point) "Folder" "TESTFOLDER")
+          (org-entry-put (point) "ToodledoFolder" "TESTFOLDER")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0) 
                                    "Synced out 1 modified task from buf2 with folder")
           (sit-for 2)
@@ -503,6 +507,7 @@ in the same state as when the test fails.")
         (let ((buf (get-buffer-create "*Org-toodledo-cleanup*")))
           (set-buffer buf)
           (erase-buffer)
+          (write-file (make-temp-file "/tmp/org-toodledo"))
           (when (not (eq major-mode 'org-mode))
             (org-mode))
           (insert-string "* TASKS\n")
