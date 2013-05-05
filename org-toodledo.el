@@ -1278,7 +1278,7 @@ Return a list of task alists."
   )
 
 (defun org-toodledo-parse-current-task ()
-  "Parse the org task at point and extract all toodledo related fields.  Retrun
+  "Parse the org task at point and extract all toodledo related fields.  Return
 an alist of the task fields."
   (save-excursion
     (org-back-to-heading t)
@@ -1350,10 +1350,28 @@ an alist of the task fields."
         (alist-put info "goal"
                    (if (org-entry-get nil "ToodledoGoal") (org-toodledo-goal-to-id (org-entry-get nil "ToodledoGoal")) "0"))
 
-        (alist-put info "duedate" "0")
-        (alist-put info "duetime" "0")
         (alist-put info "repeat" "")
         (alist-put info "repeatfrom" "0")
+
+        (alist-put info "startdate" "0")
+        (alist-put info "starttime" "0")
+        (when scheduled
+          (alist-put info "startdate" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t)))
+
+          (when (cadr (org-parse-time-string scheduled t))
+            (alist-put info "starttime" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t))))
+
+          ;; Add on the repeat
+          (let ((repeat (org-toodledo-org-to-repeat scheduled)))
+            (when repeat
+              (alist-put info "repeat" (car repeat))
+              (alist-put info "repeatfrom" (cdr repeat))
+              )
+            )
+          )
+
+        (alist-put info "duedate" "0")
+        (alist-put info "duetime" "0")
         (when deadline
           ;; Passing t as 2nd arg to org-toodledo-time-string-to-seconds adjusts for timezone,
           ;; since duedate/duetime/startdate/starttime are expected to float according to local
@@ -1380,15 +1398,6 @@ an alist of the task fields."
               (alist-put info "repeatfrom" (cdr repeat))
               )
             )
-          )
-
-        (alist-put info "startdate" "0")
-        (alist-put info "starttime" "0")
-        (when scheduled
-          (alist-put info "startdate" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t)))
-
-          (when (cadr (org-parse-time-string scheduled t))
-            (alist-put info "starttime" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t))))
           )
 
         (when (org-toodledo-do-parent) (alist-put info "parent" (org-toodledo-get-parent-id)))
