@@ -1860,6 +1860,13 @@ and from the local org file on the next sync"
                    (concat "\\<" str " +[<\[][^]>\n]+[]>][ \t]*") nil t)
               (replace-match "XXXX ")))
 
+          ;; Pull out Org-Toodledo property names
+          (dolist (str org-toodledo-property-names)
+            (goto-char (point-min))
+            (when (re-search-forward
+                   (concat ":" str ":[ \t]*[0-9A-Za-z]*[ \t]*") nil t)
+              (replace-match "XXXX ")))
+
           ;; Drop any empty lines with only XXXX
           (goto-char (point-min))
           (while (re-search-forward "^ *\\(XXXX \\)+\n" nil t)
@@ -1871,9 +1878,9 @@ and from the local org file on the next sync"
             (replace-match ""))
 
           ;; org-export-remove-or-extract-drawers removed an argument sometime around version 7
-          (if (>= (string-to-number org-version) 7)
-              (org-export-remove-or-extract-drawers org-drawers nil)
-            (org-export-remove-or-extract-drawers org-drawers nil nil))
+          ;(if (>= (string-to-number org-version) 7)
+          ;    (org-export-remove-or-extract-drawers org-drawers nil)
+          ;  (org-export-remove-or-extract-drawers org-drawers nil nil))
 
           ;; Trim leading/trailing empty lines, but preserve whitepace at the beginning of the line
           (goto-char (point-min))
