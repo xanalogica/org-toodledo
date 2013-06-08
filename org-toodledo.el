@@ -220,6 +220,10 @@
 ;;   and moving tasks around to folders, including subtasks.
 ;; 
 ;; - Fixed a bug that was causing issues running tests
+;;
+;; 2013-06-08  (cjwhite) - Version 2.11
+;; - Fixed github issue #15, org-sync failed with org 8.x due to 
+;;   missing function
 
 ;;; Installation:
 ;;
@@ -1870,12 +1874,27 @@ and from the local org file on the next sync"
           (while (re-search-forward "XXXX " nil t)
             (replace-match ""))
 
-          ;; org-export-remove-or-extract-drawers removed an argument sometime around version 7
-          (if (>= (string-to-number org-version) 7)
-              (org-export-remove-or-extract-drawers org-drawers nil)
-            (org-export-remove-or-extract-drawers org-drawers nil nil))
-
-          ;; Trim leading/trailing empty lines, but preserve whitepace at the beginning of the line
+          ;; Remove drawers
+          (goto-char (point-min))
+          (let ((re (concat "^[ \t]*:\\("
+                            (mapconcat 'identity org-drawers "\\|")
+                            "\\):[ \t]*$"))
+                name beg beg-content eol content)
+            (while (re-search-forward re nil t)
+              (setq name (match-string 1))
+              (setq beg (match-beginning 0)
+                    beg-content (1+ (point-at-eol))
+                    eol (point-at-eol))
+              (if (not (and (re-search-forward
+                             "^\\([ \t]*:END:[ \t]*\n?\\)\\|^\\*+[ \t]" nil t)
+                            (match-end 1)))
+                  (goto-char eol)
+                (goto-char (match-end 1))
+                (delete-region beg (point))
+                )))
+                     
+          ;; Trim leading/trailing empty lines, but preserve whitepace at the 
+          ;; beginning of the line
           (goto-char (point-min))
           (if (re-search-forward "\\=\\( *\n\\)+" nil t)
               (replace-match ""))
