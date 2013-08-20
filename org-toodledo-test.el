@@ -5,6 +5,12 @@
   "Set to t to stop tests on first error.  Useful to leave buffers 
 in the same state as when the test fails.")
 
+(defun org-toodledo-sim-tests()
+  "Run sim-only Org-toodledo tests"
+  (interactive)
+  (org-toodledo-test 'sim 'sim-folder 'sim-hier)
+)
+
 (defun org-toodledo-test (&rest tests)
   "Org-toodledo tests"
   (interactive)
@@ -34,6 +40,12 @@ in the same state as when the test fails.")
 
       (let ((buf1 (get-buffer-create "*Org-toodledo-test-1*"))
             (buf2 (get-buffer-create "*Org-toodledo-test-2*")))
+
+        (set-buffer buf1)
+        (write-file (make-temp-file "/tmp/org-toodledo"))
+
+        (set-buffer buf2)
+        (write-file (make-temp-file "/tmp/org-toodledo"))
 
         (when (or (member 'basic tests) (null tests))
           ;; Create buf1 in org-mode, fill with a few tasks
@@ -152,6 +164,11 @@ in the same state as when the test fails.")
         ;; Folder tests
         ;;
         (when (or (member 'folder tests) (null tests))
+          ;;
+          (setq org-toodledo-sim-db-folders nil)
+          (org-toodledo-sim-db-new-folder "1" "Folder1" "1")
+          (org-toodledo-sim-db-new-folder "2" "Folder2" "2")
+          (org-toodledo-sim-db-new-folder "3" "Deleted Tasks" "3")
           
           ;; Support-mode - folder is just property
           (setq org-toodledo-folder-support-mode nil)
@@ -264,7 +281,7 @@ in the same state as when the test fails.")
         ;;
         (when (or (member 'sim tests) (null tests))
           (setq org-toodledo-sim-curtime 1
-                org-toodledo-sim-lastedit0-task 0
+                org-toodledo-sim-lastedit-task 0
                 org-toodledo-sim-lastdelete-task 0
                 org-toodledo-sim-db-tasks nil
                 org-toodledo-sim-db-deleted nil
@@ -374,13 +391,59 @@ in the same state as when the test fails.")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 1) 
                                    "Attempted to sync out task 7 from buf2 with error")
           )
-        
+
+        ;;
+        ;; Sim folder teests
+        ;;
+        (when (or (member 'sim-folder tests) (null tests))
+          (setq org-toodledo-sim-curtime 1
+                org-toodledo-sim-lastedit-task 0
+                org-toodledo-sim-lastdelete-task 0
+                org-toodledo-sim-db-tasks nil
+                org-toodledo-sim-db-deleted nil
+                org-toodledo-sim-pro 1
+                org-toodledo-sim-mode t)
+          ;;
+          (setq org-toodledo-sim-db-folders nil)
+          (org-toodledo-sim-db-new-folder "1" "Folder1" "1")
+          (org-toodledo-sim-db-new-folder "2" "Folder2" "2")
+          (org-toodledo-sim-db-new-folder "3" "Deleted Tasks" "3")
+          
+          ;; Support-mode - folder is just property
+          (setq org-toodledo-folder-support-mode nil)
+
+          (org-toodledo-test-setup-buffer buf2)
+          (org-toodledo-initialize "TASKS")
+
+          (org-toodledo-test-setup-buffer buf1)
+          (org-toodledo-initialize "TASKS")
+
+          (org-toodledo-test-message "TEST: Create 1 task")
+          (set-buffer buf1)
+          (org-toodledo-test-create-tasks 1 2 200)
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0) "Synced out 1 new task from buf1")
+          
+          (set-buffer buf2)
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) "Synced in 1 task into buff2")
+
+          (org-toodledo-test-goto-task "Task 200")
+          (org-entry-put (point) "ToodledoFolder" "TESTFOLDER")
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0) 
+                                   "Synced out 1 modified task from buf2 with folder")
+
+          (set-buffer buf1)
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) 
+                                   "Synced in 1 modified task into buf1 with folder")
+
+          (org-toodledo-test-compare-tasks buf1 buf2 "Task 200")
+          )
+
         ;; 
         ;; Simulated server tests
         ;;
         (when (or (member 'sim-hier tests) (null tests))
           (setq org-toodledo-sim-curtime 1
-                org-toodledo-sim-lastedit0-task 0
+                org-toodledo-sim-lastedit-task 0
                 org-toodledo-sim-lastdelete-task 0
                 org-toodledo-sim-db-tasks nil
                 org-toodledo-sim-db-deleted nil

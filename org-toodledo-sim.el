@@ -6,6 +6,7 @@
 (defvar org-toodledo-sim-db-tasks nil)
 (defvar org-toodledo-sim-db-deleted nil)
 (defvar org-toodledo-sim-invalid-key nil)
+(defvar org-toodledo-sim-db-folders nil)
 
 (defun org-toodledo-sim-http-post (method &optional params)
   (org-toodledo-debug "Simulated http-post for '%s' with '%S'" method params)
@@ -20,6 +21,9 @@
      ((string= method "tasks/edit") (org-toodledo-sim-tasks-edit params))
      ((string= method "tasks/delete") (org-toodledo-sim-tasks-delete params))
      ((string= method "tasks/deleted") (org-toodledo-sim-tasks-deleted params))
+     ((string= method "folders/get") (org-toodledo-sim-folders-get params))
+     ((string= method "folders/add") (org-toodledo-sim-folders-add params))
+
      (t (error "No sim support for method: %S" method)))
     (list (buffer-substring (point-min) (point-max))
           (format "HTTP/1.1 200 OK
@@ -214,6 +218,54 @@ Content-Type: application/xml
       (alist-put org-toodledo-sim-db-deleted id org-toodledo-sim-curtime)
       (setq org-toodledo-sim-lastdelete-task org-toodledo-sim-curtime))
     t))
+
+;;
+;; Folders
+;;
+
+(defun org-toodledo-sim-folders-get (params)
+  (insert-string "<folders>")
+  (mapc (lambda (f) 
+          (insert-string 
+           (format "<folder><id>%s</id><private>0</private><archived>0</archived><order>%s</order><name>%s</name></folder>"
+                   (cdr (assoc "id" f))
+                   (cdr (assoc "order" f))
+                   (cdr (assoc "name" f)))))
+        org-toodledo-sim-db-folders)
+  (insert-string "</folders>")
+  )
+
+(defun org-toodledo-sim-folders-add (params)
+  (let ((name (cdr (assoc "name" params)))
+        (id (int-to-string (1+ (apply 'max (mapcar (lambda (folder)
+                                                     (string-to-int (cdr (assoc "id" folder))))
+                                                   org-toodledo-sim-db-folders)))))
+        (order (int-to-string (1+ (apply 'max (mapcar (lambda (folder)
+                                                        (string-to-int (cdr (assoc "order" folder))))
+                                                      org-toodledo-sim-db-folders)))))
+        )
+    (if (member-ignore-case name
+                            (mapcar (lambda (folder)
+                                      (cdr (assoc "name" folder)))
+                                    org-toodledo-sim-db-folders))
+        (insert-string "<error id='5'>A folder with that name that already exists</error>")
+      (org-toodledo-sim-db-new-folder id name order)
+      (insert-string "<folders>\n")
+      (format "<folder><id>%s</id><private>0</private><archived>0</archived><order>%s</order><name>%s</name></folder>"
+              id name order)
+      (insert-string "</folders>\n")
+      )
+    )
+  )
+
+
+(defun org-toodledo-sim-db-new-folder (id name order)
+  (let ((f `(("id" . ,id)
+             ("name" . ,name)
+             ("order" . ,order))))
+           
+  (setq org-toodledo-sim-db-folders
+        (append org-toodledo-sim-db-folders (list f)))))
 
 ;;
 ;; Misc
