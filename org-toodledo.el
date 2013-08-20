@@ -223,6 +223,19 @@
 ;; 2013-06-08  (cjwhite) - Version 2.11
 ;; - Fixed github issue #15, org-sync failed with org 8.x due to 
 ;;   missing function
+;;
+;; 2013-08-20  (cjwhite) - Version 2.12
+;; - Revamp how deleted tasks are handled, just store the deleted
+;;   task ids instead of the "Deleted Tasks" folder
+;; 
+;; - Support for `org-toodledo-archive-deleted-tasks`.  When non-nil
+;;   deleted tasks are automatically archived after synced to the
+;;   the server.  This is related to github issue #17.
+;;
+;; - Fixed github issue #21, error adding context that already exists. 
+;;   The issue occurred because org is case sensitive, whereas toodledo
+;;   is not.  Fixed by ignoring case when looking for contexts and folders.
+;;
 
 ;;; Installation:
 ;;
@@ -381,6 +394,12 @@ updated.  Set to t to sync completed tasks into the local buffer."
   :type '(choice (const :tag "Store folder as property only" nil)
                  (const :tag "Treat folders as headings" heading)))
 
+(defcustom org-toodledo-archive-deleted-tasks nil
+  "Set to t to archive deleted tasks once they are synced to the server."
+  :group 'org-toodledo
+  :type 'boolean
+)
+
 ;;
 ;; Internal variables for tracking org-toodledo state
 ;;
@@ -407,7 +426,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.10")
+(defconst org-toodledo-version "2.12")
 
 (defconst org-toodledo-fields 
   '( 
@@ -616,7 +635,7 @@ should only be used for the short period of time when a new task is ")
   )
 
 (defun org-toodledo-clear-cached-vars ()
-  "Clear all cached variables such as the toekn, local list of folders and contexts, etc.
+  "Clear all cached variables such as the token, local list of folders and contexts, etc.
 Call this if switching accounts."
   (interactive)
   (setq org-toodledo-token nil)
@@ -659,6 +678,39 @@ Call this if switching accounts."
           (while (re-search-forward ":\\(Folder\\|Goal\\):" nil t)
             (replace-match "Toodledo\\1" nil nil nil 1)))
         
+        (when (version< version "2.12") 
+          ;; Cull "Deleted Tasks" into the OrgToodledoPendingDeletes variable
+          (goto-char (point-min))
+          (let ((regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
+                (deleted-tasks-str nil))
+            (while (re-search-forward regexp nil t)
+              ;; 'task' is the current state of the task at point and is parsed from the buffer
+              ;; after all tasks above this point have been processed.  That means parent
+              ;; tasks either have a toodledoid, or were assigned a tmp-ref
+              (let* ((task (org-toodledo-parse-current-task))
+                     (id (org-toodledo-task-id task))
+                     (deleted (org-entry-get (point) "Deleted")))
+                (when deleted
+                  (setq deleted-tasks-str 
+                        (if deleted-tasks-str 
+                            (concat deleted-tasks-str " " id)
+                          id))
+                  (org-back-to-heading t)
+                  (if org-toodledo-archive-deleted-tasks
+                      ;; Archive the task
+                      (org-archive-subtree)
+                    ;; Just delete the task
+                    (org-cut-subtree)))))
+            
+            (when deleted-tasks-str 
+              (org-toodledo-goto-base-entry)
+              (org-entry-put (point) "OrgToodledoPendingDeletes"  deleted-tasks-str)))
+            
+          (goto-char (org-find-exact-headline-in-buffer "Deleted Tasks"))
+          (org-cut-subtree)
+          )
+        
+        ;; Finally, updated the version of the file
         (if (org-toodledo-goto-base-entry)
             (org-entry-put (point) "OrgToodledoVersion" org-toodledo-version))))))
 
@@ -877,11 +929,18 @@ Return a list of task alists."
            edit-child-tasks-alist
            new-parent-edit-child-alist
            edit-tasks
-           delete-tasks
+           (delete-tasks (let* ((idstr (or (save-excursion
+                                             (org-toodledo-goto-base-entry)
+                                             (org-entry-get (point) "OrgToodledoPendingDeletes")) ""))
+                                (ids (split-string idstr "[ ]")))
+                           (if (> (length idstr) 0)
+                               ids
+                             nil)))
            tasks-by-title-alist
            (errors 0)
            (end nil) ;; Restrict to Toodledo Task heading only?  XXXCJ
            )
+      
       (when columns-pos
         (org-columns-quit))
 
@@ -1025,15 +1084,6 @@ Return a list of task alists."
                  (t (org-toodledo-die "New task has a parent, but parent task has neither a tmp-ref nor ID"))
                  )
                 )
-              )
-             
-             ;; Collect a "delete" task
-             (deleted
-              (setq delete-tasks (append delete-tasks (list task)))
-              (org-toodledo-debug "...deleted task")
-              ;; XXXCJ -- need to handle deletion of tasks that have children
-              ;; This may mean leave the heading around if there are sub-headings that 
-              ;; are not tasks.  
               )
              
              ;; Collect an "edit" task
@@ -1188,7 +1238,7 @@ Return a list of task alists."
       
       ;; Issue a single call for delete-tasks
       (when delete-tasks
-        (let ((result (org-toodledo-server-delete-tasks (mapcar 'org-toodledo-task-id delete-tasks)))
+        (let ((result (org-toodledo-server-delete-tasks delete-tasks))
               id fail title errnum errcode)
           (loop 
            for del-task in delete-tasks
@@ -1200,29 +1250,16 @@ Return a list of task alists."
                   (setq errcode (org-toodledo-error-num-to-code errnum))
                   (setq fail (car elem))
 
-                  (org-toodledo-error "Server error code %s '%s' while trying to delete task id %s: '%s'"
-                                      errnum (org-toodledo-error-num-to-str errnum)
-                                      (org-toodledo-task-id del-task)
-                                      (org-toodledo-task-title del-task))
-                  (cond 
-                   ((eq errcode 'invalid-task-id)
-                    (setq id (org-toodledo-task-id del-task))))
-                  
+                  (org-toodledo-error "Server error code %s '%s' while trying to delete task id %s"
+                                      errnum (org-toodledo-error-num-to-str errnum) del-task)
                   (setq errors (1+ errors))
                   )
-                
-                (cond
-                 ((not (org-toodledo-goto-todo-entry id t))
-                  (org-toodledo-error "Internal error: server responded with unrecognized task id '%s' while deleting task id %s: '%s'"
-                                      id
-                                      (org-toodledo-task-id del-task)
-                                      (org-toodledo-task-title del-task))
-                  (setq errors (1+ errors)))
-                 
-                 (t
-                  (org-toodledo-delete-local-task id)
-                  (org-toodledo-info "Successfully deleted task ID %s" id)))))))
-
+                )
+           )
+          )
+        (save-excursion
+          (org-toodledo-goto-base-entry)
+          (org-entry-delete (point) "OrgToodledoPendingDeletes")))
       
       ;; Finally, update account info
       (unless skip-import
@@ -1755,7 +1792,7 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
 (defun org-toodledo-delete-local-task (id)
   "Delete the task text for ID from the current buffer.  This
 does no interaction with the server.  This is primarily used when
-notified that a task on th server was deleted.
+notified that a task on the server was deleted.
 
 In most cases org-toodledo-mark-task-deleted is more appropriate."
 
@@ -1764,13 +1801,19 @@ In most cases org-toodledo-mark-task-deleted is more appropriate."
            (org-toodledo-goto-todo-entry id t))
       (progn
         (org-back-to-heading t)
-        (delete-region
-         (point)
-         (if (and (end-of-line)
-                  (re-search-forward org-complex-heading-regexp nil t))
-             (match-beginning 0)
-           (org-end-of-subtree t t)
-           (point)))
+        (if org-toodledo-archive-deleted-tasks
+            ;; Archive the task
+            (org-archive-subtree)
+
+          ;; Just delete the task
+          (delete-region
+           (point)
+           (if (and (end-of-line)
+                    (re-search-forward org-complex-heading-regexp nil t))
+               (match-beginning 0)
+             (org-end-of-subtree t t)
+             (point)))
+          )
         )
     )
   )
@@ -1790,13 +1833,30 @@ and from the local org file on the next sync"
           (org-columns-quit))
         
         (org-back-to-heading t)
-        (let ((task (org-toodledo-parse-current-task))
-              response)
-          (when (> (length (org-toodledo-task-id task)) 0)
-            (org-entry-put (point) "Deleted" "1")
+        (let* ((task (org-toodledo-parse-current-task))
+               (id (org-toodledo-task-id task))
+               response)
+          (when (> (length id) 0)
             (org-back-to-heading t)
-            (org-set-tags-to "DELETED")
-            (org-toodledo-refile-current-task-to-heading "Deleted Tasks" t)
+            (save-excursion
+              (org-toodledo-goto-base-entry)
+              (let ((deleted-tasks (org-entry-get (point) "OrgToodledoPendingDeletes")))
+                (org-entry-put (point) "OrgToodledoPendingDeletes" 
+                               (if deleted-tasks
+                                   (concat deleted-tasks " " id)
+                                 id))))
+            (if org-toodledo-archive-deleted-tasks
+                ;; Archive the task
+                (org-archive-subtree)
+              ;; If not archive, just delete it
+              (delete-region
+               (point)
+               (if (and (end-of-line)
+                        (re-search-forward org-complex-heading-regexp nil t))
+                   (match-beginning 0)
+                 (org-end-of-subtree t t)
+                 (point)))
+              )
             )
           )
         
@@ -2397,7 +2457,7 @@ Reload if FORCE is non-nil.")
      `(defun ,(intern (concat "org-toodledo-" name "-to-id")) (item) 
         "Return numeric ID for CONTEXT, creating if necessary."
         (let ((lookups ,(list (intern get-func))))
-          (if (null (assoc item lookups))
+          (if (null (assoc-string item lookups t))
               ;; Create it if it does not yet exist
               (let ((result
                      (org-toodledo-call-method
@@ -2412,7 +2472,7 @@ Reload if FORCE is non-nil.")
                                              'id)))
                               ,(intern cache-var))
                         lookups ,(intern cache-var)))))
-          (cdr (assoc item lookups))))
+          (cdr (assoc-string item lookups t))))
      `(defun ,(intern (concat "org-toodledo-id-to-" name)) (id) 
         "Return name for context by ID."
         (let ((lookups ,(list (intern get-func))))
@@ -2447,14 +2507,14 @@ Reload if FORCE is non-nil."
 (defun org-toodledo-folder-to-id (name) 
   "Return numeric ID for NAME, creating if necessary."
   (let ((lookups (org-toodledo-get-folders)))
-    (if (null (assoc name lookups))
+    (if (null (assoc-string name lookups t))
         ;; Create it if it does not yet exist
         (let ((result (org-toodledo-call-method "folders/add" (list (cons "name" name)))))
           (if (eq (caar result) 'error)
               (org-toodledo-die (format "Failed to add new folder: %s" name))
             (setq org-toodledo-folders nil)
             (setq lookups (org-toodledo-get-folders)))))
-    (cdr (assoc name lookups))))
+    (cdr (assoc-string name lookups t))))
 
 (defun org-toodledo-id-to-folder (id)
   "Return NAME for folder by ID."
