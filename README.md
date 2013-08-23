@@ -297,8 +297,14 @@ Installation
 
 1. Required emacs packages:
 
-     * `w3m' or `w3mexcerpt' -- see Notes below
-     * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
+   * `w3m' or `w3mexcerpt' -- see Notes below
+   * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
+
+   Note, if you see messages like "(lambda (field) ...) quoted with ' rather 
+   than with #'" related to http-post-simple, see this 
+   [StackOverflow Question](http://stackoverflow.com/questions/17285048).
+   It seems there are 5 places in http-post-simple.el that use ='(lambda...)=
+   where just =(lambda...)= would be fine.
 
 2. Put this file in your load path, byte compile the file for best
    performance, see `byte-compile-file'.
