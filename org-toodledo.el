@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.10
+;; Version: 2.12
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -236,13 +236,21 @@
 ;;   The issue occurred because org is case sensitive, whereas toodledo
 ;;   is not.  Fixed by ignoring case when looking for contexts and folders.
 ;;
+;; - Fixed github issue #22, toodledo does not support empty tasks.  Added
+;;   a check to skip over any such tasks
 
 ;;; Installation:
 ;;
 ;; 1. Required emacs packages:
-;;      * `w3m' or `w3mexcerpt' -- see Notes below
-;;      * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
-;;
+;;       * `w3m' or `w3mexcerpt' -- see Notes below
+;;       * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
+;;         
+;;    Note, if you see messages like "(lambda (field) ...) quoted with ' rather 
+;;    than with #'" related to http-post-simple, see this 
+;;    [StackOverflow Question](http://stackoverflow.com/questions/17285048).
+;;    It seems there are 5 places in http-post-simple.el that use ='(lambda...)=
+;;    where just =(lambda...)= would be fine.
+;;         
 ;; 2. Put this file in your load path, byte compile the file for best
 ;;    performance, see `byte-compile-file'.
 ;;
@@ -649,71 +657,73 @@ Call this if switching accounts."
 
 (defun org-toodledo-check-version ()
   (save-excursion
-    (let ((version "0"))
-      (unless (org-toodledo-goto-base-entry)
-        (org-toodledo-initialize))
+    (if (not (org-toodledo-goto-base-entry))
+        (org-toodledo-initialize)
+      (let ((version (or (org-entry-get (point) "OrgToodledoVersion") "0")))
+        (if (version= version org-toodledo-version)
+            (org-toodledo-info "org-toodledo buffer at latest version %s" version)
+          (org-toodledo-info "org-toodledo is using older version %s than current org-toodledo version %s, upgrading" version org-toodledo-version)
+          (when (version< version "2.3") 
+            ;; Fixup tags to eliminate the hyphen, which really shouldn't be used in tag / property names
+            (goto-char (point-min))
+            (while (re-search-forward "Toodledo\\(-\\)\\(lastsync\\|ID\\|lastedit_task\\|lastdelete_task\\)" nil t)
+              (let ((str2 (match-string 2)))
+                (replace-match "" nil nil nil 1)
+                (cond
+                 ((string= str2 "lastsync") (replace-match "LastSync" nil nil nil 2))
+                 ((string= str2 "lastedit_task") (replace-match "LastEdit" nil nil nil 2))
+                 ((string= str2 "lastdelete_task") (replace-match "LastDelete" nil nil nil 2)))))
+            (goto-char (point-min))
+            (while (re-search-forward ":\\(Modified\\|Sync\\):" nil t)
+              (org-entry-delete (point) "Modified")
+              (org-entry-delete (point) "Sync")))
 
-      (setq version (or (org-entry-get (point) "OrgToodledoVersion") "0"))
-      (if (version= version org-toodledo-version)
-          (org-toodledo-info "org-toodledo buffer at latest version %s" version)
-        (org-toodledo-info "org-toodledo is using older version %s than current org-toodledo version %s, upgrading" version org-toodledo-version)
-        (when (version< version "2.3") 
-          ;; Fixup tags to eliminate the hyphen, which really shouldn't be used in tag / property names
-          (goto-char (point-min))
-          (while (re-search-forward "Toodledo\\(-\\)\\(lastsync\\|ID\\|lastedit_task\\|lastdelete_task\\)" nil t)
-            (let ((str2 (match-string 2)))
-              (replace-match "" nil nil nil 1)
-              (cond
-               ((string= str2 "lastsync") (replace-match "LastSync" nil nil nil 2))
-               ((string= str2 "lastedit_task") (replace-match "LastEdit" nil nil nil 2))
-               ((string= str2 "lastdelete_task") (replace-match "LastDelete" nil nil nil 2)))))
-          (goto-char (point-min))
-          (while (re-search-forward ":\\(Modified\\|Sync\\):" nil t)
-            (org-entry-delete (point) "Modified")
-            (org-entry-delete (point) "Sync")))
+          (when (version< version "2.10") 
+            ;; Prefix Folder/Goal tags with Toodledo
+            (goto-char (point-min))
+            (while (re-search-forward ":\\(Folder\\|Goal\\):" nil t)
+              (replace-match "Toodledo\\1" nil nil nil 1)))
+          
+          (when (version< version "2.12") 
+            ;; Cull "Deleted Tasks" into the OrgToodledoPendingDeletes variable
+            (goto-char (point-min))
+            (let ((regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
+                  (deleted-tasks-str nil))
+              (while (re-search-forward regexp nil t)
+                ;; 'task' is the current state of the task at point and is parsed from the buffer
+                ;; after all tasks above this point have been processed.  That means parent
+                ;; tasks either have a toodledoid, or were assigned a tmp-ref
+                (let* ((task (org-toodledo-parse-current-task))
+                       (id (org-toodledo-task-id task))
+                       (deleted (org-entry-get (point) "Deleted")))
+                  (when deleted
+                    (setq deleted-tasks-str 
+                          (if deleted-tasks-str 
+                              (concat deleted-tasks-str " " id)
+                            id))
+                    (org-back-to-heading t)
+                    (if org-toodledo-archive-deleted-tasks
+                        ;; Archive the task
+                        (org-archive-subtree)
+                      ;; Just delete the task
+                      (org-cut-subtree)))))
+              
+              (when deleted-tasks-str 
+                (org-toodledo-goto-base-entry)
+                (org-entry-put (point) "OrgToodledoPendingDeletes"  deleted-tasks-str)))
 
-        (when (version< version "2.10") 
-          ;; Prefix Folder/Goal tags with Toodledo
-          (goto-char (point-min))
-          (while (re-search-forward ":\\(Folder\\|Goal\\):" nil t)
-            (replace-match "Toodledo\\1" nil nil nil 1)))
-        
-        (when (version< version "2.12") 
-          ;; Cull "Deleted Tasks" into the OrgToodledoPendingDeletes variable
-          (goto-char (point-min))
-          (let ((regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
-                (deleted-tasks-str nil))
-            (while (re-search-forward regexp nil t)
-              ;; 'task' is the current state of the task at point and is parsed from the buffer
-              ;; after all tasks above this point have been processed.  That means parent
-              ;; tasks either have a toodledoid, or were assigned a tmp-ref
-              (let* ((task (org-toodledo-parse-current-task))
-                     (id (org-toodledo-task-id task))
-                     (deleted (org-entry-get (point) "Deleted")))
-                (when deleted
-                  (setq deleted-tasks-str 
-                        (if deleted-tasks-str 
-                            (concat deleted-tasks-str " " id)
-                          id))
-                  (org-back-to-heading t)
-                  (if org-toodledo-archive-deleted-tasks
-                      ;; Archive the task
-                      (org-archive-subtree)
-                    ;; Just delete the task
-                    (org-cut-subtree)))))
-            
-            (when deleted-tasks-str 
-              (org-toodledo-goto-base-entry)
-              (org-entry-put (point) "OrgToodledoPendingDeletes"  deleted-tasks-str)))
-            
-          (goto-char (org-find-exact-headline-in-buffer "Deleted Tasks"))
-          (org-cut-subtree)
-          )
-        
-        ;; Finally, updated the version of the file
-        (if (org-toodledo-goto-base-entry)
-            (org-entry-put (point) "OrgToodledoVersion" org-toodledo-version))))))
-
+            (let ((m (org-find-exact-headline-in-buffer "Deleted Tasks")))
+              (when m
+                (goto-char m)
+                (org-cut-subtree)
+                )
+              )
+            )
+          
+          ;; Finally, updated the version of the file
+          (if (org-toodledo-goto-base-entry)
+              (org-entry-put (point) "OrgToodledoVersion" org-toodledo-version)))))))
+  
 ;;
 ;; Token / key functions
 ;;
@@ -1039,10 +1049,17 @@ Return a list of task alists."
                     parent-id nil))
 
             (cond 
-             ;; Collect a "new" task
-             ;; 
-             ;; A new task is any task that does not yet have an assigned Toodeldo-ID
+             ((and (null (org-toodledo-task-id task))
+                   (null (org-toodledo-task-title task)))
+              ;; A "new" task, but the title is empty, just skip
+              (org-toodledo-debug "  skipping empty TODO, no title")
+              )
+              
              ((null (org-toodledo-task-id task))
+              ;; Collect a "new" task
+              ;; 
+              ;; A new task is any task that does not yet have an assigned Toodeldo-ID
+              ;;
               ;; Assign a temporary id, send it to the server as "ref", it will be echoed 
               ;; back from the server result with a real toodledoid.  This tmp ID is saved
               ;; in the task as the ToodledoID, but is always negative so as not to conflict
@@ -2642,6 +2659,7 @@ lists."
   (apply 'org-toodledo-log (append (list 3 str) args)))
 
 (defun org-toodledo-error-addedit-task (type num task)
+  "Generate an error message for a failed add or edit of a task."
   (let ((id (org-toodledo-task-id task))
         (title (org-toodledo-task-title task))
         (code (org-toodledo-error-num-to-code num)))
