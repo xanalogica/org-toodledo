@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.12
+;; Version: 2.13
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -238,6 +238,12 @@
 ;;
 ;; - Fixed github issue #22, toodledo does not support empty tasks.  Added
 ;;   a check to skip over any such tasks
+;;
+;; 2013-09-01  (cjwhite) - Version 2.13
+;; - Support for `org-toodledo-archive-completed-tasks`.  When non-nil
+;;   completed tasks are archived.  This supports archiving tasks completed
+;;   locally via org as well as syncing-in tasks that were completed on
+;;   Toodledo.
 
 ;;; Installation:
 ;;
@@ -408,6 +414,12 @@ updated.  Set to t to sync completed tasks into the local buffer."
   :type 'boolean
 )
 
+(defcustom org-toodledo-archive-completed-tasks nil
+  "Set to t to archive completed tasks once they are synced to the server."
+  :group 'org-toodledo
+  :type 'boolean
+)
+
 ;;
 ;; Internal variables for tracking org-toodledo state
 ;;
@@ -434,7 +446,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.12")
+(defconst org-toodledo-version "2.13")
 
 (defconst org-toodledo-fields 
   '( 
@@ -604,7 +616,7 @@ should only be used for the short period of time when a new task is ")
 
           (org-entry-put (point) "ToodledoLastSync" "0")
           (org-entry-put (point) "OrgToodledoVersion" org-toodledo-version)
-          (setq result (org-toodledo-sync))
+          (setq result (org-toodledo-sync nil nil t))
           (goto-char (point-min))
           (re-search-forward (format "^\*+[ \t]* %s" (regexp-quote item)))
           (org-overview)
@@ -917,12 +929,16 @@ Return a list of task alists."
 ;;       - need to move the task back to the normal new task folder
 ;;
 
-(defun org-toodledo-sync (&optional skip-import skip-export)
+(defun org-toodledo-sync (&optional skip-import skip-export init)
   "Synchronize tasks with the server bidirectionally."
   ;; Returns: (list tot imod idel onew omod odel errors)
   (interactive)
   (org-toodledo-info "Starting org-toodledo-sync")
   (org-toodledo-debug "  called interactively: %S" (called-interactively-p 'interactive))
+  (if (and org-toodledo-sync-new-completed-tasks
+           org-toodledo-archive-completed-tasks)
+      (org-toodledo-error "org-toodledo-sync-new-completed-tasks set to true, will not archive completed tasks")
+    )
   (org-toodledo-check-version)
   (org-toodledo-get-folders t) 
   (save-excursion
@@ -949,6 +965,7 @@ Return a list of task alists."
            tasks-by-title-alist
            (errors 0)
            (end nil) ;; Restrict to Toodledo Task heading only?  XXXCJ
+           completed-tasks
            )
       
       (when columns-pos
@@ -965,14 +982,23 @@ Return a list of task alists."
           (when (> (string-to-number server-lastedit-task)
                    (string-to-number local-lastedit-task))
             (org-toodledo-info "Server has changes, asking for all modafter=%S" local-lastedit-task)
-            (alist-put params "modafter" local-lastedit-task) ;; limit to tasks edited since last sync
-            (alist-put params "comp" "-1")                    ;; grab all tasks, completed or not
+
+            ;; limit to tasks edited since last sync
+            (alist-put params "modafter" local-lastedit-task) 
+
+             ;; if init, grab only uncompleted, otherwises grab all tasks, completed or not
+            (alist-put params "comp" (if init "0" "-1"))     
+
             (setq server-edit-tasks (org-toodledo-get-tasks params))
             (setq my-server-edit-tasks server-edit-tasks)
             ;; Process tasks parent tasks first (filter-child = nil)
             (mapc (lambda (task) (org-toodledo-process-task task nil)) server-edit-tasks)
             ;; ...then any child tasks (filter-child = t)
             (mapc (lambda (task) (org-toodledo-process-task task t)) server-edit-tasks)
+
+            ;; Now, go through server-edit-tasks and look for completed parents, and archive
+            (when org-toodledo-archive-completed-tasks
+              (mapc (lambda (task) (org-toodledo-check-completed-task task)) server-edit-tasks))
             )
           )
         
@@ -1112,9 +1138,14 @@ Return a list of task alists."
              ((not (string= hash computed-hash))
               (let ((edit-task (org-toodledo-limit-fields task))
                     (id (org-toodledo-task-id task)))
-                (when (org-toodledo-task-completed task)
-                  ;; XXXCJ - make sure completed is handled correctly:
-                  ;;   DONE state should set the CLOSED timestamp
+                (when (and org-toodledo-archive-completed-tasks 
+                           (not org-toodledo-sync-new-completed-tasks)
+                           (org-toodledo-task-is-completed task)
+                           (null parent-task))
+                  ;; If archiving completed tasks, save off the parent task
+                  ;; so we can come back to it later and archive it
+                  (setq completed-tasks (append completed-tasks (list edit-task)))
+                  (org-toodledo-mark-subtree-done)
                   )
                 
                 (cond
@@ -1277,6 +1308,22 @@ Return a list of task alists."
         (save-excursion
           (org-toodledo-goto-base-entry)
           (org-entry-delete (point) "OrgToodledoPendingDeletes")))
+
+      ;; Now go back and find all completed tasks
+      (when completed-tasks
+        (org-toodledo-debug "Completed tasks to archive: %s" completed-tasks)
+        (loop
+         for completed-task in completed-tasks
+         do (progn
+              (org-toodledo-debug "Planning to archive completed task: %s" (org-toodledo-task-title completed-task))
+              (when (org-toodledo-goto-todo-entry (org-toodledo-task-id completed-task) )
+                (org-toodledo-debug "Archiving completed task: %s" (org-toodledo-task-title completed-task))
+                (org-back-to-heading t)
+                (org-archive-subtree)
+                )
+              )
+         )
+        )
       
       ;; Finally, update account info
       (unless skip-import
@@ -1525,6 +1572,16 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
             (org-entry-get nil "ToodledoID")) 
         "0")))
 
+(defun org-toodledo-check-completed-task (task)
+  (let* ((parent (org-toodledo-task-parent task))
+         (is-child (and parent (not (string= parent "0")))))
+    (if (and (not is-child)
+             (org-toodledo-task-is-completed task)
+             (org-toodledo-goto-todo-entry (org-toodledo-task-id task) t))
+        (progn
+          (org-toodledo-debug "Archiving task: %s" (org-toodledo-task-title task))
+          (org-archive-subtree)))))
+    
 (defun org-toodledo-process-task (task filter-child)
   "Process TASK definition, comparing with all currently defined tasks.
   - if TASK is not yet known (by id), create a new task
@@ -2608,6 +2665,13 @@ lists."
     )
   )
 
+(defun org-toodledo-run-sim-tests()
+  "Run only simulated org-toodledo tests"
+  (interactive)
+  (require 'org-toodledo-test)
+  (org-toodledo-test 'sim)
+)
+
 (defun org-toodledo-run-tests ()
   "Run org-toodledo-test suite"
   (interactive)
@@ -2726,6 +2790,18 @@ lists."
 (defun org-toodledo-do-parent ()
   (and (org-toodledo-pro)
        (not org-toodledo-flatten-all-tasks)))
+
+(defun org-toodledo-mark-subtree-done ()
+  (interactive)
+  (save-excursion
+    (org-mark-subtree)
+    (let ((limit (point)))
+      (save-excursion
+        (exchange-point-and-mark)
+        (while (> (point) limit)
+          (org-todo "DONE")
+          (outline-previous-visible-heading 1))
+        (org-todo "DONE")))))
 
 (provide 'org-toodledo)
 ;;; org-toodledo.el ends here

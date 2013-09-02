@@ -8,6 +8,15 @@
 (defvar org-toodledo-sim-invalid-key nil)
 (defvar org-toodledo-sim-db-folders nil)
 
+(defun org-toodledo-sim-init (pro)
+  (setq org-toodledo-sim-curtime 1
+        org-toodledo-sim-lastedit-task 0
+        org-toodledo-sim-lastdelete-task 0
+        org-toodledo-sim-db-tasks nil
+        org-toodledo-sim-db-deleted nil
+        org-toodledo-sim-pro pro
+        org-toodledo-sim-mode t))
+
 (defun org-toodledo-sim-http-post (method &optional params)
   (org-toodledo-debug "Simulated http-post for '%s' with '%S'" method params)
   (with-temp-buffer
@@ -65,11 +74,15 @@ Content-Type: application/xml
 ;; tasks/get
 ;;
 (defun org-toodledo-sim-tasks-get (params)
-  (let ((modafter (string-to-int (cdr (assoc "modafter" params)))))
+  (let ((modafter (string-to-int (cdr (assoc "modafter" params))))
+        (comp (string-to-int (cdr (assoc "comp" params)))))
     (org-toodledo-sim-xml-get-tasks 
      (delq nil
            (mapcar (lambda (task)
-                     (if (> (string-to-int (org-toodledo-task-modified task)) modafter) task nil))
+                     (if (and (> (string-to-int (org-toodledo-task-modified task)) modafter)
+                              (or (eq comp -1)
+                                  (not (org-toodledo-task-is-completed task))))
+                         task nil))
                    (mapcar 'cdr org-toodledo-sim-db-tasks))))))
 
 (defun org-toodledo-sim-xml-get-tasks (tasks)

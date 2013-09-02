@@ -1,5 +1,5 @@
 Overview
-========
+--------
 
 This package adds the ability to sync org-mode tasks with
 Toodledo, a powerful web-based todo list manager that welcomes 3rd
@@ -8,7 +8,7 @@ party integrations.  (See http://www.toodledo.com/)
 This version of `org-toodledo' utilizes version 2.0 of the Toodledo API. 
 
 Synchronizing For The First Time
-================================
+--------------------------------
 
 The first step in using org-toodledo is to initialize a file and
 synchronize tasks.  Simply create a new file, change the mode to
@@ -38,7 +38,7 @@ the status of synchronization:
 This is referred to as the 'base Toodledo entry'.
 
 Synchronizing Tasks
-===================
+-------------------
 
 The local org-file can be synchronized with the server at any time
 by calling `org-toodledo-sync'.  When called, the following steps
@@ -76,29 +76,41 @@ Note that `org-toodledo-sync' scans the entire file for tasks, not
 just subheadings of the base entry.
 
 Adding New Tasks
-================
+----------------
 
 To add a new task on the server, just create a new headline
 anywhere in the org file and give the headline a TODO keyword.
 When ready, call `org-toodledo-sync' to push new tasks to the
 server.
 
-Deleting Tasks
-==============
+Completing Tasks
+----------------
 
-Tasks cannot simply be killed from the org-file like text if the
-were already synced with the server since they will just come back
-the next time `org-toodledo-sync' is called.  Instead, they must be
-marked as deleted by calling `org-toodledo-mark-task-deleted'.  Call
-this function from any point within the task.  At the next sync, 
-the task will be deleted from the server and then killed from the 
-local file.
+Tasks can be completed in org by setting the TODO state to DONE.  
+This will mark the item completed.  If tasks are marked completed 
+on the server, they will be completed on sync.
+
+Set the variable `org-toodledo-archive-completed-tasks` to =t= to 
+automatically archive completed tasks.
+
+Deleting Tasks
+--------------
+
+Tasks cannot simply be killed from the org-file like text if the tasks
+are known to the server since they will just come back the next time
+`org-toodledo-sync' is called.  Instead, they must be marked as
+deleted by calling `org-toodledo-mark-task-deleted'.  Call this
+function from any point within the task.  At the next sync, the task
+will be deleted from the server and then killed from the local file.
 
 Note that it may not be necessary to delete tasks in this way.  Instead
 complete the task and let Toodledo archive completed tasks.
 
+Set the variable `org-toodledo-archive-deleted-tasks` to =t= to 
+automatically archive deleted tasks.
+
 Toodledo Fields
-===============
+---------------
 
 The table lists the possible Toodledo fields and how they are
 mapped to org-mode style tasks:
@@ -126,7 +138,7 @@ mapped to org-mode style tasks:
 </table>
 
 TODO States
-===========
+-----------
 
 The TODO states from Toodledo are mapped to org-mode states via the
 `org-toodledo-status-to-org-map' alist.   This can be customized to
@@ -139,7 +151,7 @@ put a line like the following somewhere in your org file:
     #+SEQ_TODO: TODO(t) DELEGATED(g) SOMEDAY(s) WAITING(w) | DONE(d) CANCELLED(c) REFERENCE(r) 
 
 Contexts
-========
+--------
 
 Toodledo 'Contexts' allow you to split tasks into contexts such as
 Work and Home.  Contexts are mapped to org tags with the '@' keyword,
@@ -150,7 +162,7 @@ the task context of :@Phone: when Phone is not a valid context will
 loose the context.
 
 Subtasks
-========
+--------
 
 Sub-tasks are supported by Toodledo with a Pro account subscription.  
 When enabled, a 2-level task hierarchy is supported:
@@ -196,7 +208,7 @@ Note that the hierarchy is preserved in the org-mode file, it just
 displays with the children flattened on the server.
 
 Folders
-=======
+-------
 
 Folders are supported in two modes based on the variable
 `org-toodledo-folder-support-mode`.  If nil, basic mode
@@ -242,7 +254,7 @@ suggest you backup your work before running it just in case...)
 Folder name changes are not yet handled.
 
 Miscellaneous Notes
-===================
+-------------------
 
  - Doesn't do lots of error trapping. Might be a good idea to
    version-control your Org file.
@@ -262,7 +274,7 @@ Miscellaneous Notes
    behavior can be changed via `org-toodledo-sync-on-save'.
 
 Known Issues
-============
+------------
 
 - Attempting the following the change will fail:
 
@@ -275,7 +287,7 @@ Known Issues
   can't have a 3-level heirarchy.
 
 Future Work
-===========
+-----------
 
 TODO Feature Requests: highest priority at top
 
@@ -293,7 +305,7 @@ TODO Feature Requests: highest priority at top
 * Support tasks across all agenda files.  (cjwhite)
 
 Installation
-============
+------------
 
 1. Required emacs packages:
 
