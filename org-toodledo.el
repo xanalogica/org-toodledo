@@ -244,6 +244,9 @@
 ;;   completed tasks are archived.  This supports archiving tasks completed
 ;;   locally via org as well as syncing-in tasks that were completed on
 ;;   Toodledo.
+;;
+;; 2013-09-02  (cjwhite) - Version 2.14
+;; - Fixed issue #24 - pay attention to org-default-priority
 
 ;;; Installation:
 ;;
@@ -446,7 +449,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.13")
+(defconst org-toodledo-version "2.14")
 
 (defconst org-toodledo-fields 
   '( 
@@ -1428,12 +1431,11 @@ an alist of the task fields."
                          (format "%.0f" (org-time-string-to-seconds closed)) "0"))
                (cons "status" (org-toodledo-map-status status))
                (cons "priority"
-                     (cond
-                      ((equal priority "[#A]") "3")
-                      ((equal priority "[#B]") "2")
-                      ((equal priority "[#C]") "1")
-                      ((equal priority "[#D]") "0")
-                      (t "2"))) ;; Force org-mode's no priority to be same as [#B] as is done in org-mode.
+                     ;; A=3, B=2, C=1, D-Z=0, no priorty=org-default-priority
+                     (let ((p (if (string-match "\[#[A-Z]\]" priority)
+                                  (elt priority 2)
+                                org-default-priority)))
+                       (number-to-string (max (- ?D p) 0))))
                (cons "note"
                      (org-toodledo-entry-note))))
 
