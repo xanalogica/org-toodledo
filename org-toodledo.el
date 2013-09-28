@@ -254,7 +254,7 @@
 ;;
 ;; - Fixed issue #27 - support priority -1 as org levels E-Z
 ;;
-;; - Fixed issued
+;; - Fixed issue #28 - drop extra space in dates when no repeat
 
 ;;; Installation:
 ;;
@@ -457,7 +457,7 @@ updated.  Set to t to sync completed tasks into the local buffer."
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.14")
+(defconst org-toodledo-version "2.15")
 
 (defconst org-toodledo-fields 
   '( 
@@ -2183,7 +2183,7 @@ as a Toodledo style string.  Return nil if STRING has no repeat information"
 ;; Date Handling
 ;;
 
-;; (assert (equal (org-toodledo-format-date "2003-08-12") "<2003-08-12 Tue>"))
+;; (assert (equal (org-toodledo-format-date "2003-08-12" nil) "<2003-08-12 Tue>"))
 
 (defun org-toodledo-format-date (date addtime &optional repeat)
   "Return yyyy-mm-dd day for DATE."
@@ -2200,7 +2200,7 @@ as a Toodledo style string.  Return nil if STRING has no repeat information"
      (t (apply 'encode-time (org-parse-time-string date))))
     t ;; This says *universal* time
     )
-   (if repeat (concat " " repeat) "")
+   (if (and repeat (not (string= repeat ""))) (concat " " repeat) "")
    ">"))
 
 (defun org-toodledo-time-string-to-seconds (timestr &optional univ)
