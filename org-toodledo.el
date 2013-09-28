@@ -247,6 +247,11 @@
 ;;
 ;; 2013-09-02  (cjwhite) - Version 2.14
 ;; - Fixed issue #24 - pay attention to org-default-priority
+;;
+;; 2013-09-28  (cjwhite) - Version 2.15
+;; - Fixed issue #26 - look at `org-toodledo-sync-new-completed-tasks` when syncing
+;;   for the first time.  If t, sync all completed tasks
+;;
 
 ;;; Installation:
 ;;
@@ -990,7 +995,7 @@ Return a list of task alists."
             (alist-put params "modafter" local-lastedit-task) 
 
              ;; if init, grab only uncompleted, otherwises grab all tasks, completed or not
-            (alist-put params "comp" (if init "0" "-1"))     
+            (alist-put params "comp" (if (or init org-toodledo-sync-new-completed-tasks) "0" "-1"))     
 
             (setq server-edit-tasks (org-toodledo-get-tasks params))
             (setq my-server-edit-tasks server-edit-tasks)
