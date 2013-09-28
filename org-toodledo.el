@@ -255,6 +255,8 @@
 ;; - Fixed issue #27 - support priority -1 as org levels E-Z
 ;;
 ;; - Fixed issue #28 - drop extra space in dates when no repeat
+;;
+;; - Fixed issue #31 - cleaned up compiler warnings
 
 ;;; Installation:
 ;;
@@ -330,6 +332,13 @@
 (require 'http-post-simple)
 (require 'url)
 (require 'url-http)
+(require 'org-agenda)
+(require 'org-toodledo-test)
+(require 'org-toodledo-sim)
+
+(declare-function org-columns-quit "org-colview.el")
+(declare-function org-toodledo-get-contexts "org-toodledo.el")
+(declare-function org-toodledo-get-goals "org-toodledo.el")
 
 ;;
 ;; User customizable variables
@@ -459,19 +468,99 @@ updated.  Set to t to sync completed tasks into the local buffer."
 
 (defconst org-toodledo-version "2.15")
 
-(defconst org-toodledo-fields 
-  '( 
-    ;; Toodledo recongized fields
-    "id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "duetime"
-    "startdate" "starttime" "modified" "folder" "goal" "priority" "note" "length" "parent" "tag"
-    ;; org-toodledo only fields
-    "sync" "hash")
-  "All fields related to a task"
+(defmacro org-toodledo-make-lookup-function (name)
+  "Create a lookup function and caching functions for NAME.
+
+  variable:  org-toodledo-NAMEs
+  functions: org-toodledo-get-NAMEs
+             org-toodledo-NAME-to-id
+             org-toodledo-id-to-NAME
+"
+  (let ((cache-var (concat "org-toodledo-" name "s"))
+        (get-func (concat "org-toodledo-get-" name "s"))
+        (add-method (concat name "s/add"))
+        (get-method (concat name "s/get")))
+    (list
+     'progn
+     `(defun ,(intern get-func) (&optional force)
+        ,(concat "Store an alist of (title . id) in `" cache-var "'.
+Reload if FORCE is non-nil.")
+        (if (or force (null ,(intern cache-var)))
+            (setq ,(intern cache-var)
+                  (mapcar
+                   (lambda (node)
+                     (cons
+                      (caddar (xml-get-children node 'name)) (caddar (xml-get-children node 'id))))
+                   (xml-get-children (car
+                                      (org-toodledo-call-method ,get-method)) (quote ,(intern name)))))
+          ,(intern cache-var)))
+
+     `(defun ,(intern (concat "org-toodledo-" name "-to-id")) (item) 
+        "Return numeric ID for CONTEXT, creating if necessary."
+        (let ((lookups ,(list (intern get-func))))
+          (if (null (assoc-string item lookups t))
+              ;; Create it if it does not yet exist
+              (let ((result
+                     (org-toodledo-call-method
+                      ,add-method
+                      (list (cons "name" item)))))
+                (if (eq (caar result) 'error)
+                    (org-toodledo-die (format "Failed to add new %s: %s" ,name item))
+                  (setq ,(intern cache-var)
+                        (cons (cons item
+                                    (caddar (xml-get-children 
+                                             (car (xml-get-children (car result) (quote ,(intern name))))
+                                             'id)))
+                              ,(intern cache-var))
+                        lookups ,(intern cache-var)))))
+          (cdr (assoc-string item lookups t))))
+     `(defun ,(intern (concat "org-toodledo-id-to-" name)) (id) 
+        "Return name for context by ID."
+        (let ((lookups ,(list (intern get-func))))
+          (if (null (rassoc id lookups))
+              nil
+            (car (rassoc id lookups))))
+        )
+     )
+    )
   )
 
-(defconst org-toodledo-fields-check-empty-or-zero
-  '("folder" "goal" "context" "length")
-  "Fields that should be set to nil if either \"0\" or \"\""
+(eval-when-compile
+  (org-toodledo-make-lookup-function "context")
+  (org-toodledo-make-lookup-function "goal")
+
+  (defconst org-toodledo-fields 
+    '( 
+      ;; Toodledo recongized fields
+      "id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" "duetime"
+      "startdate" "starttime" "modified" "folder" "goal" "priority" "note" "length" "parent" "tag"
+      ;; org-toodledo only fields
+      "sync" "hash")
+    "All fields related to a task"
+    )
+
+  (defconst org-toodledo-fields-check-empty-or-zero
+    '("folder" "goal" "context" "length")
+    "Fields that should be set to nil if either \"0\" or \"\""
+    )
+
+  ;; Create a convenience function "org-toodled-task-<field>" for each field
+  ;; of a task
+  
+  (mapc (lambda (field)
+          (if (member field org-toodledo-fields-check-empty-or-zero)
+              (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
+                       ,(concat "Return the task property '" field "' for TASK, return nil if \"0\" or \"\"")
+                       (let ((value (cdr (assoc ,field task))))
+                         (if (and value (not (equal value "0")) (not (equal value "")))
+                             value
+                           nil))))
+            
+            (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
+                     ,(concat "Return the task property '" field "' for TASK")
+                     (cdr (assoc ,field task))))))   
+        org-toodledo-fields)
+
   )
 
 (defconst org-toodledo-fields-dont-ask
@@ -998,10 +1087,10 @@ Return a list of task alists."
             (alist-put params "modafter" local-lastedit-task) 
 
              ;; if init, grab only uncompleted, otherwises grab all tasks, completed or not
-            (alist-put params "comp" (if (or init org-toodledo-sync-new-completed-tasks) "0" "-1"))     
+            (alist-put params "comp" (if (and init (not org-toodledo-sync-new-completed-tasks)) "0" "-1"))     
 
             (setq server-edit-tasks (org-toodledo-get-tasks params))
-            (setq my-server-edit-tasks server-edit-tasks)
+
             ;; Process tasks parent tasks first (filter-child = nil)
             (mapc (lambda (task) (org-toodledo-process-task task nil)) server-edit-tasks)
             ;; ...then any child tasks (filter-child = t)
@@ -1235,7 +1324,7 @@ Return a list of task alists."
                         (progn
                           (setq errors (1+ errors))
                           (org-toodledo-error "Failed to find local copy of new task, server ref '%s' id '%s', task: '%s'"
-                                              ref id (org-toodledo-task-title edit-task))
+                                              ref id (org-toodledo-task-title new-task))
                           )
                       (org-entry-put (point) "ToodledoID" id)
                       (org-entry-delete (point) "ToodledoSyncError")
@@ -1274,23 +1363,25 @@ Return a list of task alists."
       (when edit-tasks
         (let ((result (org-toodledo-server-edit-tasks edit-tasks)))
           (loop
-           for edit-task in edit-tasks
+           ;for edit-task in edit-tasks
            for elem in result
            do (let ((status (car elem))
                     (data (cdr elem)))
                 (cond
                  ((eq status 'error)
                   (setq errors (1+ errors))
-                  (org-toodledo-error-addedit-task "edit" data edit-task))
+                  ;(org-toodledo-error-addedit-task "edit" data edit-task)
+                  )
 
                  ((eq status 'task)
                   (let ((id (cdr (assoc "id" data))))
                     (if (not (org-toodledo-goto-todo-entry id t))
                         (progn
                           (setq errors (1+ errors))
-                          (org-toodledo-error "Failed to find local copy of edit task, server id '%s', task %s: '%s'"
-                                              id (org-toodledo-task-id edit-task)
-                                              (org-toodledo-task-title edit-task)))
+                          ;(org-toodledo-error "Failed to find local copy of edit task, server id '%s', task %s: '%s'"
+                          ;                    id (org-toodledo-task-id edit-task)
+                          ;                    (org-toodledo-task-title edit-task))
+                          )
                       (org-toodledo-compute-hash t)
                       (org-entry-delete (point) "ToodledoSyncError")
                       (org-toodledo-info "Successfully edited task ID %s" id)))))))))
@@ -1298,7 +1389,7 @@ Return a list of task alists."
       ;; Issue a single call for delete-tasks
       (when delete-tasks
         (let ((result (org-toodledo-server-delete-tasks delete-tasks))
-              id fail title errnum errcode)
+              id fail title errnum errcode elem del-task)
           (loop 
            for del-task in delete-tasks
            for elem in result
@@ -1952,21 +2043,6 @@ and from the local org file on the next sync"
 ;; Field related functions
 ;;
 
-;; Create a convenience function "org-toodled-task-<field>" for each field
-;; of a task
-(mapc (lambda (field)
-        (if (member field org-toodledo-fields-check-empty-or-zero)
-            (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
-                     ,(concat "Return the task property '" field "' for TASK, return nil if \"0\" or \"\"")
-                     (let ((value (cdr (assoc ,field task))))
-                       (if (and value (not (equal value "0")) (not (equal value "")))
-                           value
-                         nil))))
-          
-          (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
-                   ,(concat "Return the task property '" field "' for TASK")
-                   (cdr (assoc ,field task))))))   
-      org-toodledo-fields)
 
 (defun org-toodledo-limit-fields (task &optional fields)
   (unless fields
@@ -2102,7 +2178,7 @@ and from the local org file on the next sync"
 
 (defun org-toodledo-priority-to-org (priority)
   "Convert PRIORITY from Toodledo to an org-mode letter"
-  (min (- ?D (string-to-int priority)) org-lowest-priority))
+  (min (- ?D (string-to-number priority)) org-lowest-priority))
 
 (defun org-toodledo-org-to-priority (priority)
   "Convert PRIORITY from org-mode priority string like '[#A]' to Toodledo priority"
@@ -2111,8 +2187,6 @@ and from the local org file on the next sync"
                (elt priority 2)
              org-default-priority)))
     (number-to-string (max (- ?D p) -1))))
-)
-
 
 ;;
 ;; Repeat parsing and translation (ie. every 1 month)
@@ -2277,7 +2351,8 @@ return position, otherwise a marker."
 (defun org-toodledo-agenda-mark-task-deleted ()
   "Mark the task as deleted from an org-agenda buffer"
   (interactive)
-  (org-agenda-check-type t 'agenda 'tags)
+  (if (fboundp 'org-agenda-check-type)
+      (org-agenda-check-type t 'agenda 'tags))
   (org-agenda-check-no-diary)
   (let* ((marker (or (org-get-at-bol 'org-marker)
 		     (org-agenda-error)))
@@ -2524,64 +2599,6 @@ a list of alists of fields returned from the server."
         parsed-response
       (org-toodledo-die (format "Call to %s failed: %s" method-name (caddar parsed-response))))))
 
-(defmacro org-toodledo-make-lookup-function (name)
-  "Create a lookup function and caching functions for NAME.
-
-  variable:  org-toodledo-NAMEs
-  functions: org-toodledo-get-NAMEs
-             org-toodledo-NAME-to-id
-             org-toodledo-id-to-NAME
-"
-  (let ((cache-var (concat "org-toodledo-" name "s"))
-        (get-func (concat "org-toodledo-get-" name "s"))
-        (add-method (concat name "s/add"))
-        (get-method (concat name "s/get")))
-    (list
-     'progn
-     `(defun ,(intern get-func) (&optional force)
-        ,(concat "Store an alist of (title . id) in `" cache-var "'.
-Reload if FORCE is non-nil.")
-        (if (or force (null ,(intern cache-var)))
-            (setq ,(intern cache-var)
-                  (mapcar
-                   (lambda (node)
-                     (cons
-                      (caddar (xml-get-children node 'name)) (caddar (xml-get-children node 'id))))
-                   (xml-get-children (car
-                                      (org-toodledo-call-method ,get-method)) (quote ,(intern name)))))
-          ,(intern cache-var)))
-     `(defun ,(intern (concat "org-toodledo-" name "-to-id")) (item) 
-        "Return numeric ID for CONTEXT, creating if necessary."
-        (let ((lookups ,(list (intern get-func))))
-          (if (null (assoc-string item lookups t))
-              ;; Create it if it does not yet exist
-              (let ((result
-                     (org-toodledo-call-method
-                      ,add-method
-                      (list (cons "name" item)))))
-                (if (eq (caar result) 'error)
-                    (org-toodledo-die (format "Failed to add new %s: %s" ,name item))
-                  (setq ,(intern cache-var)
-                        (cons (cons item
-                                    (caddar (xml-get-children 
-                                             (car (xml-get-children (car result) (quote ,(intern name))))
-                                             'id)))
-                              ,(intern cache-var))
-                        lookups ,(intern cache-var)))))
-          (cdr (assoc-string item lookups t))))
-     `(defun ,(intern (concat "org-toodledo-id-to-" name)) (id) 
-        "Return name for context by ID."
-        (let ((lookups ,(list (intern get-func))))
-          (if (null (rassoc id lookups))
-              nil
-            (car (rassoc id lookups))))
-        )
-     )
-    )
-  )
-
-(org-toodledo-make-lookup-function "context")
-(org-toodledo-make-lookup-function "goal")
 
 (defun org-toodledo-convert-xml-to-lookup-list (xml-resp tag)
   "Parse XML response used for folders, goals, and contexts"
@@ -2690,14 +2707,12 @@ lists."
 (defun org-toodledo-run-sim-tests()
   "Run only simulated org-toodledo tests"
   (interactive)
-  (require 'org-toodledo-test)
   (org-toodledo-test 'sim)
 )
 
 (defun org-toodledo-run-tests ()
   "Run org-toodledo-test suite"
   (interactive)
-  (require 'org-toodledo-test)
   (when (y-or-n-p "Switch to test account and run org-toodledo tests? ")
     (let ((old-userid org-toodledo-userid)
           (old-password org-toodledo-password))
@@ -2716,15 +2731,16 @@ lists."
 (defun org-toodledo-log (level str &rest args)
   (let (hdr msg)
     (when (<= level org-toodledo-log-level)
-      (save-excursion
-        (set-buffer (get-buffer-create "*Org-toodledo-log*"))
-        (goto-char (point-max))
-        (setq hdr (concat "[" (format-time-string "%H:%M:%S") "] [" 
-                          (aref ["ERROR" "INFO" "DEBUG" "DEBUG2"] level) "] "))
-        (setq msg (apply 'format (append (list str) args)))
-        (insert (concat hdr msg "\n"))
-        (if (<= level org-toodledo-msg-level)
-            (message msg))
+      (with-current-buffer (get-buffer-create "*Org-toodledo-log*")
+        (save-excursion
+          (goto-char (point-max))
+          (setq hdr (concat "[" (format-time-string "%H:%M:%S") "] [" 
+                            (aref ["ERROR" "INFO" "DEBUG" "DEBUG2"] level) "] "))
+          (setq msg (apply 'format (append (list str) args)))
+          (insert (concat hdr msg "\n"))
+          (if (<= level org-toodledo-msg-level)
+              (message msg))
+          )
         )
       )
     msg))
@@ -2793,8 +2809,7 @@ lists."
   (org-toodledo-clear-cached-vars)
   (if (not org-toodledo-sim-mode)
       (message "org-toodledo http posts are REAL")
-    (message "org-toodledo http posts are SIMULATED")
-    (require 'org-toodledo-sim)))
+    (message "org-toodledo http posts are SIMULATED")))
 
 (defun org-toodledo-error-num-to-code (num)
   (let ((match (assoc num org-toodledo-error-code-map)))
