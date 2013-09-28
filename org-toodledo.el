@@ -252,6 +252,9 @@
 ;; - Fixed issue #26 - look at `org-toodledo-sync-new-completed-tasks` when syncing
 ;;   for the first time.  If t, sync all completed tasks
 ;;
+;; - Fixed issue #27 - support priority -1 as org levels E-Z
+;;
+;; - Fixed issued
 
 ;;; Installation:
 ;;
@@ -1396,6 +1399,8 @@ an alist of the task fields."
     (org-back-to-heading t)
     (when (and (looking-at org-complex-heading-regexp)
                (match-string 2)) ;; the TODO keyword
+      (org-toodledo-debug "org-toodledo-parse-current-task: %s" 
+                          (match-string 0))
       (let* (info
              (status (match-string-no-properties 2))
              (priority (match-string-no-properties 3))
@@ -1435,12 +1440,7 @@ an alist of the task fields."
                      (if (equal status "DONE") 
                          (format "%.0f" (org-time-string-to-seconds closed)) "0"))
                (cons "status" (org-toodledo-map-status status))
-               (cons "priority"
-                     ;; A=3, B=2, C=1, D-Z=0, no priorty=org-default-priority
-                     (let ((p (if (string-match "\[#[A-Z]\]" priority)
-                                  (elt priority 2)
-                                org-default-priority)))
-                       (number-to-string (max (- ?D p) 0))))
+               (cons "priority" (org-toodledo-org-to-priority priority))
                (cons "note"
                      (org-toodledo-entry-note))))
 
@@ -1719,6 +1719,8 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
            (compute-hash t)
            )
 
+      (org-toodledo-debug "org-toodledo-insert-new-task: %s" (org-toodledo-task-title task))
+      
       (when (eq mode 'edit)
         (delete-region (progn (org-back-to-heading t) (point))
                        (progn (goto-char (match-end 0))
@@ -1774,12 +1776,7 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
       
       (insert (concat
                (org-toodledo-task-status-to-org task) " "
-               (cond
-                ((equal priority "-1") "[#D] ") 
-                ((equal priority "0")  "[#D] ")
-                ((equal priority "1")  "[#C] ") 
-                ((equal priority "2")  "[#B] ") 
-                ((equal priority "3")  "[#A] "))
+               (format "[#%c] " (org-toodledo-priority-to-org priority))
                (org-toodledo-task-title task)
                "\n"))
       
@@ -2098,6 +2095,24 @@ and from the local org file on the next sync"
      ((not (or (null comp) (equal comp "") (equal comp "0"))) "DONE")
      (t (org-toodledo-map-status status t))
      )))
+
+;;
+;; Map priority
+;;
+
+(defun org-toodledo-priority-to-org (priority)
+  "Convert PRIORITY from Toodledo to an org-mode letter"
+  (min (- ?D (string-to-int priority)) org-lowest-priority))
+
+(defun org-toodledo-org-to-priority (priority)
+  "Convert PRIORITY from org-mode priority string like '[#A]' to Toodledo priority"
+  ;; A=3, B=2, C=1, D=0, E-Z=-1 no priorty=org-default-priority
+  (let ((p (if (and priority (string-match "\[#[A-Z]\]" priority))
+               (elt priority 2)
+             org-default-priority)))
+    (number-to-string (max (- ?D p) -1))))
+)
+
 
 ;;
 ;; Repeat parsing and translation (ie. every 1 month)
