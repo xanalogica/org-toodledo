@@ -209,7 +209,7 @@
 ;; 2013-03-24  (cjwhite) - Version 2.10
 ;; - Renamed folder/goal properties to ToodledoFolder and ToodledoGoal
 ;; 
-;; - Added `org-toodledo-reset` function to eliminate any trace of 
+;; - Added `org-toodledo-reset' function to eliminate any trace of 
 ;;   toodledo from an org file (great to use if you want to refresh
 ;;   the server from your master org file)
 ;;
@@ -228,7 +228,7 @@
 ;; - Revamp how deleted tasks are handled, just store the deleted
 ;;   task ids instead of the "Deleted Tasks" folder
 ;; 
-;; - Support for `org-toodledo-archive-deleted-tasks`.  When non-nil
+;; - Support for `org-toodledo-archive-deleted-tasks'.  When non-nil
 ;;   deleted tasks are automatically archived after synced to the
 ;;   the server.  This is related to github issue #17.
 ;;
@@ -240,7 +240,7 @@
 ;;   a check to skip over any such tasks
 ;;
 ;; 2013-09-01  (cjwhite) - Version 2.13
-;; - Support for `org-toodledo-archive-completed-tasks`.  When non-nil
+;; - Support for `org-toodledo-archive-completed-tasks'.  When non-nil
 ;;   completed tasks are archived.  This supports archiving tasks completed
 ;;   locally via org as well as syncing-in tasks that were completed on
 ;;   Toodledo.
@@ -249,7 +249,7 @@
 ;; - Fixed issue #24 - pay attention to org-default-priority
 ;;
 ;; 2013-09-28  (cjwhite) - Version 2.15
-;; - Fixed issue #26 - look at `org-toodledo-sync-new-completed-tasks` when syncing
+;; - Fixed issue #26 - look at `org-toodledo-sync-new-completed-tasks' when syncing
 ;;   for the first time.  If t, sync all completed tasks
 ;;
 ;; - Fixed issue #27 - support priority -1 as org levels E-Z
@@ -257,6 +257,9 @@
 ;; - Fixed issue #28 - drop extra space in dates when no repeat
 ;;
 ;; - Fixed issue #31 - cleaned up compiler warnings
+;;
+;; - Fixed issue #29 - added `org-toodledo-post-sync-hook' to call after 
+;;   each synchronization, even if errors occurred.
 
 ;;; Installation:
 ;;
@@ -438,6 +441,23 @@ updated.  Set to t to sync completed tasks into the local buffer."
   "Set to t to archive completed tasks once they are synced to the server."
   :group 'org-toodledo
   :type 'boolean
+)
+
+(defcustom org-toodledo-post-sync-hook nil
+  "Hook(s) to call after synchronization is complete.  This will be run
+whether the synchronization was successful or not. 
+
+Each hook is called with a single argument, the result list:
+   (list tot imod idel onew omod odel errors)
+
+Where:
+   tot - total number of changes processed
+   imod idel inew - number of received modifications, deletions, and new tasks
+   onew omod odel - number of sent new, modificaitons, and deletions
+   errors - number of errors
+"
+  :group 'org-toodledo
+  :type 'hook
 )
 
 ;;
@@ -1478,7 +1498,10 @@ Return a list of task alists."
             (message "Errors during synchronization.  See '*Org-toodledo-log*' for details.")
             (sit-for org-toodledo-sync-message-time))))
 
-        (list tot imod idel onew omod odel errors))
+        (let ((result (list tot imod idel onew omod odel errors)))
+          (run-hook-with-args 'org-toodledo-post-sync-hook result)
+          result)
+        )
       )
     )
   )
