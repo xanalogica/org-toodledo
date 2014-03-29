@@ -771,7 +771,7 @@ should only be used for the short period of time when a new task is ")
   (while (re-search-forward (concat "^ *:\\("
                                     (mapconcat 'identity org-toodledo-property-names "\\|")
                                     "\\):") nil t)
-    (org-delete-property (match-string 1)))
+    (org-delete-property (match-string 1) "PROPERTIES"))
   (goto-char (point-min))
   )
 
@@ -883,7 +883,8 @@ Call this if switching accounts."
        (time-less-p (current-time) org-toodledo-token-expiry)))
 
 (defun org-toodledo-token ()
-  "Retrieve authentication token valid for four hours.  This token is used for all
+  "Retr
+ieve authentication token valid for four hours.  This token is used for all
 interaction with the server.  If the token expires, a new token is automatically
 retrieved. "
   (if (or (string= org-toodledo-userid "")
@@ -2125,13 +2126,6 @@ and from the local org file on the next sync"
                    (concat "\\<" str " +[<\[][^]>\n]+[]>][ \t]*") nil t)
               (replace-match "XXXX ")))
 
-          ;; Pull out Org-Toodledo property names
-          (dolist (str org-toodledo-property-names)
-            (goto-char (point-min))
-            (when (re-search-forward
-                   (concat ":" str ":[ \t]*[0-9A-Za-z]*[ \t]*") nil t)
-              (replace-match "XXXX ")))
-
           ;; Drop any empty lines with only XXXX
           (goto-char (point-min))
           (while (re-search-forward "^ *\\(XXXX \\)+\n" nil t)
@@ -2141,6 +2135,9 @@ and from the local org file on the next sync"
           (goto-char (point-min))
           (while (re-search-forward "XXXX " nil t)
             (replace-match ""))
+
+          ;; Remove any hint of org-toodledo properties
+          (org-toodledo-reset)
 
           ;; Remove drawers
           (when (not org-toodledo-preserve-drawers)
