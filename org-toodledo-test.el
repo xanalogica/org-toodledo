@@ -1,10 +1,10 @@
 (defvar org-toodledo-test-stop-on-error nil
-  "Set to t to stop tests on first error.  Useful to leave buffers 
+  "Set to t to stop tests on first error.  Useful to leave buffers
 in the same state as when the test fails.")
 
 ;;
 ;; Run org-toodledo-tests
-;; 
+;;
 (defun org-toodledo-test (&rest tests)
   "Org-toodledo tests"
   (interactive)
@@ -30,7 +30,7 @@ in the same state as when the test fails.")
       (setq org-toodledo-sim-mode nil)
       (pop-to-buffer org-toodledo-test-msg-buf)
       (erase-buffer)
-      
+
       (when (null tests)
         (org-toodledo-test-cleanup))
 
@@ -38,7 +38,7 @@ in the same state as when the test fails.")
 
       (let ((buf1 (get-buffer-create buf1-file))
             (buf2 (get-buffer-create buf2-file)))
-        
+
         (set-buffer buf1)
         (write-file buf1-file)
 
@@ -59,7 +59,7 @@ in the same state as when the test fails.")
           (org-toodledo-initialize "TASKS")
           (org-toodledo-test-verify-tasks buf2 "Task 1" "Task 2" "Task 3")
           (sit-for 2)
-          
+
           ;; Modify Task 1 and sync
           (org-toodledo-test-message "TEST: Modifying Task 1 in buf2")
           (org-toodledo-test-goto-task "Task 1")
@@ -67,14 +67,14 @@ in the same state as when the test fails.")
           (insert-string " - modified")
           (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0) "Synced out 1 modified task")
           (sit-for 2)
-          
+
           ;; Back to buf1, sync -- verify
           (org-toodledo-test-message "TEST: Syncing modified Task 1")
           (set-buffer buf1)
           (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) "Synced in 1 modified task")
           (org-toodledo-test-verify-tasks buf1 "Task 1 - modified" "Task 2" "Task 3")
           (sit-for 2)
-          
+
           ;; Modify Task 3 and sync
           (org-toodledo-test-message "TEST: Modifying Task 3")
           (org-toodledo-test-goto-task "Task 3")
@@ -98,8 +98,8 @@ in the same state as when the test fails.")
           (org-toodledo-test-cleanup)
           (sit-for 2)
           )
-        
-        ;; 
+
+        ;;
         ;; Encoding special chars
         ;;
         (when (or (member 'special tests) (null tests))
@@ -114,12 +114,12 @@ in the same state as when the test fails.")
 
           (goto-char (point-max))
           (insert-string "** TODO ORGTOODLEDOTEST:Task é字\nBody é字")
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0)
                                    "Synced out 1 new task with special chars")
           (sit-for 2)
 
           (set-buffer buf2)
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0)
                                    "Synced in 1 task with special chars")
           (org-toodledo-test-compare-tasks buf1 buf2 "Task é字")
           (sit-for 2)
@@ -128,7 +128,7 @@ in the same state as when the test fails.")
           (org-toodledo-test-cleanup)
           (sit-for 2)
           )
-        
+
         ;;
         ;; Bulk test -- make sure more than 50 works
         ;;
@@ -147,7 +147,7 @@ in the same state as when the test fails.")
           (org-toodledo-test-equal (org-toodledo-sync) '(60 0 0 60 0 0 0)
                                    "Synced 60 new tasks")
           (sit-for 2)
-          
+
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(60 60 0 0 0 0 0)
                                    "Synced in 60 tasks")
@@ -158,7 +158,7 @@ in the same state as when the test fails.")
           (sit-for 2)
           )
 
-        ;; 
+        ;;
         ;; Folder tests
         ;;
         (when (or (member 'folder tests) (null tests))
@@ -167,7 +167,7 @@ in the same state as when the test fails.")
           (org-toodledo-sim-db-new-folder "1" "Folder1" "1")
           (org-toodledo-sim-db-new-folder "2" "Folder2" "2")
           (org-toodledo-sim-db-new-folder "3" "Deleted Tasks" "3")
-          
+
           ;; Support-mode - folder is just property
           (let ((org-toodledo-folder-support-mode nil))
 
@@ -184,19 +184,19 @@ in the same state as when the test fails.")
             (org-toodledo-test-create-tasks 1 2 200)
             (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0) "Synced out 1 new task from buf1")
             (sit-for 2)
-            
+
             (set-buffer buf2)
             (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) "Synced in 1 task into buff2")
             (sit-for 2)
 
             (org-toodledo-test-goto-task "Task 200")
             (org-entry-put (point) "ToodledoFolder" "TESTFOLDER")
-            (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0) 
+            (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0)
                                      "Synced out 1 modified task from buf2 with folder")
             (sit-for 2)
 
             (set-buffer buf1)
-            (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0)
                                      "Synced in 1 modified task into buf1 with folder")
             (sit-for 2)
 
@@ -208,7 +208,7 @@ in the same state as when the test fails.")
             )
           )
 
-        ;; 
+        ;;
         ;; Tag tests
         ;;
         (when (or (member 'tag tests) (null tests))
@@ -225,48 +225,48 @@ in the same state as when the test fails.")
           (org-toodledo-test-create-tasks 10 2 300)
           (org-toodledo-test-equal (org-toodledo-sync) '(10 0 0 10 0 0 0) "Synced out 10 new tasks from buf1")
           (sit-for 2)
-          
+
           (set-buffer buf2)
           (org-toodledo-test-equal (org-toodledo-sync) '(10 10 0 0 0 0 0) "Synced in 10 task into buf2")
           (sit-for 2)
 
-          (mapcar (lambda (id) 
+          (mapcar (lambda (id)
                     (org-toodledo-test-goto-task (concat "Task " id))
                     (org-set-tags-to (list (concat "Foo" id))))
                   '("303" "305" "307"))
-          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 0 0 3 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 0 0 3 0 0)
                                    "Synced out 3 modified task from buf2 with tags")
           (sit-for 2)
 
           (set-buffer buf1)
-          (org-toodledo-test-equal (org-toodledo-sync) '(3 3 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(3 3 0 0 0 0 0)
                                    "Synced in 3 modified task into buf1 with tags")
           (sit-for 2)
 
-          (org-toodledo-test-compare-tasks buf1 buf2 
+          (org-toodledo-test-compare-tasks buf1 buf2
                                            "Task 300" "Task 301" "Task 302" "Task 303" "Task 304"
                                            "Task 305" "Task 306" "Task 307" "Task 308" "Task 309")
 
           (set-buffer buf1)
-          (mapcar (lambda (id) 
+          (mapcar (lambda (id)
                     (org-toodledo-test-goto-task (concat "Task " id))
                     (org-set-tags-to (list (concat "Foo" id) "@Bar")))
                   '("303" "305" "307"))
 
-          (mapcar (lambda (id) 
+          (mapcar (lambda (id)
                     (org-toodledo-test-goto-task (concat "Task " id))
                     (org-set-tags-to (list "@Bar")))
                   '("300" "304" "309"))
-          (org-toodledo-test-equal (org-toodledo-sync) '(6 0 0 0 6 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(6 0 0 0 6 0 0)
                                    "Synced out 6 modified task from buf1 with tags")
           (sit-for 2)
 
           (set-buffer buf2)
-          (org-toodledo-test-equal (org-toodledo-sync) '(6 6 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(6 6 0 0 0 0 0)
                                    "Synced in 6 modified task into buf2 with tags")
           (sit-for 2)
 
-          (org-toodledo-test-compare-tasks buf1 buf2 
+          (org-toodledo-test-compare-tasks buf1 buf2
                                            "Task 300" "Task 301" "Task 302" "Task 303" "Task 304"
                                            "Task 305" "Task 306" "Task 307" "Task 308" "Task 309")
 
@@ -274,35 +274,35 @@ in the same state as when the test fails.")
           (org-toodledo-test-cleanup)
           (sit-for 2)
           )
-        
-        ;; 
+
+        ;;
         ;; Simulated server tests
         ;;
         (when (or (member 'sim tests) (null tests))
           (org-toodledo-sim-init 0)
-            
+
           ;; Start with 2 tasks on the server
           (org-toodledo-test-message "TEST: creating 2 tasks in db to start")
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")))
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 2")))
-          
+
           ;; Sync them into buf1
           (org-toodledo-test-message "TEST: initializing buf1")
           (org-toodledo-test-setup-buffer buf1)
-          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0)
                                    "Synced in initial tasks 1,2 into buf1")
 
           ;; Add 2 more tasks
           (org-toodledo-test-message "TEST: adding tasks 3,4 to buf1")
           (org-toodledo-test-create-tasks 2 2 3)
-          (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0)
                                    "Synced out new tasks 3,4 from buf1")
 
           (org-toodledo-test-message "TEST: Syncing all 4 tasks into buf2")
           (org-toodledo-test-setup-buffer buf2)
-          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(4 4 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(4 4 0 0 0 0 0)
                                    "Synced in initial tasks 1-4 into buf2")
-          (org-toodledo-test-compare-tasks buf1 buf2 
+          (org-toodledo-test-compare-tasks buf1 buf2
                                            "Task 1" "Task 2" "Task 3" "Task 4")
 
 
@@ -311,30 +311,30 @@ in the same state as when the test fails.")
           (org-toodledo-test-create-tasks 2 2 5)
           (org-toodledo-test-message "...simulating invalid-key")
           (setq org-toodledo-sim-invalid-key t) ;; inject and invalid-key, this should be handled silently
-          (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(2 0 0 2 0 0 0)
                                    "Synced out new tasks 5,6 from buf2")
 
           ;; Pull those new tasks 5,6 into buf1
           (org-toodledo-test-message "TEST: Pulling 2 latest tasks back into buf1")
           (set-buffer buf1)
-          (org-toodledo-test-equal (org-toodledo-sync) '(2 2 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(2 2 0 0 0 0 0)
                                    "Synced in new tasks 5,6 into buf1")
 
           ;; Delete tasks 2,4,6 in buf1
           (org-toodledo-test-message "TEST: Deleting 3 tasks in buf1")
-          (mapc 
-           (lambda (id) 
+          (mapc
+           (lambda (id)
              (org-toodledo-test-goto-task (format "Task %d" id))
-             (org-toodledo-mark-task-deleted)) 
+             (org-toodledo-mark-task-deleted))
            '(2 4 6))
-          
-          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 0 0 0 3 0) 
+
+          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 0 0 0 3 0)
                                    "Synced out deleted tasks 2,4,6 from buf1")
 
           ;; Sync in the deleted tasks into buf2
           (org-toodledo-test-message "TEST: Syncing 3 deleted tasks in buf2")
           (set-buffer buf2)
-          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 3 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(3 0 3 0 0 0 0)
                                    "Synced in deleted tasks 2,4,6 into buf2")
 
           ;; Delete task 1 on the server *and* in buf1, and attempt a sync
@@ -346,7 +346,7 @@ in the same state as when the test fails.")
                  (id (org-toodledo-task-id task)))
             (org-toodledo-sim-db-delete-task id t))
           (org-toodledo-mark-task-deleted)
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 0 1 1) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 0 1 1)
                                    "Attempted to sync out deleted task 1 from buf1 with error")
 
           ;; Simulate a task error with a bad context-id
@@ -355,39 +355,39 @@ in the same state as when the test fails.")
           (org-toodledo-test-goto-task "Task 7")
           (end-of-line)
           (insert-string " simerror=9")
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 1) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 1)
                                    "Attempted to sync out task 7 from buf1 with error")
-          
+
           ;; Fix the task
           (org-toodledo-test-message "TEST: Fixing task 7")
           (org-toodledo-test-goto-task "Task 7")
           (re-search-forward " simerror=9")
           (replace-match "")
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0)
                                    "Attempted to sync out task 7 from buf1 with no error")
 
 
           ;; Sync into buf2
           (org-toodledo-test-message "TEST: Syncing task 7 into buf2")
           (set-buffer buf2)
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0)
                                    "Sync in task 7 into buf2")
           (org-toodledo-test-compare-tasks buf1 buf2 "Task 3" "Task 5" "Task 7")
-          
+
           ;; Make task 7 an error again
           (org-toodledo-test-message "TEST: Editing 7 with a simulated context-id error")
           (org-toodledo-test-goto-task "Task 7")
           (end-of-line)
           (insert-string " simerror=9")
-          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 1) 
+          (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 1)
                                    "Attempted to sync out task 7 from buf2 with error")
           )
 
         ;;
-        ;; Sim folder teests
+        ;; Sim folder tests
         ;;
-        (when (or (member 'sim-folder tests) 
-                  (member 'sim tests) 
+        (when (or (member 'sim-folder tests)
+                  (member 'sim tests)
                   (null tests))
           (org-toodledo-sim-init 1)
 
@@ -396,7 +396,7 @@ in the same state as when the test fails.")
           (org-toodledo-sim-db-new-folder "1" "Folder1" "1")
           (org-toodledo-sim-db-new-folder "2" "Folder2" "2")
           (org-toodledo-sim-db-new-folder "3" "Deleted Tasks" "3")
-          
+
           ;; Support-mode - folder is just property
           (let ((org-toodledo-folder-support-mode nil))
 
@@ -410,31 +410,31 @@ in the same state as when the test fails.")
             (set-buffer buf1)
             (org-toodledo-test-create-tasks 1 2 200)
             (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 1 0 0 0) "Synced out 1 new task from buf1")
-            
+
             (set-buffer buf2)
             (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) "Synced in 1 task into buff2")
 
             (org-toodledo-test-goto-task "Task 200")
             (org-entry-put (point) "ToodledoFolder" "TESTFOLDER")
-            (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0) 
+            (org-toodledo-test-equal (org-toodledo-sync) '(1 0 0 0 1 0 0)
                                      "Synced out 1 modified task from buf2 with folder")
 
             (set-buffer buf1)
-            (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-sync) '(1 1 0 0 0 0 0)
                                      "Synced in 1 modified task into buf1 with folder")
 
             (org-toodledo-test-compare-tasks buf1 buf2 "Task 200")
             )
           )
-        
-        ;; 
-        ;; Simulated server tests
+
+        ;;
+        ;; Simulated tests with parent tasks
         ;;
         (when (or (member 'sim-hier tests)
-                  (member 'sim tests) 
+                  (member 'sim tests)
                   (null tests))
           (org-toodledo-sim-init 1)
-            
+
           ;; Start with 2 tasks on the server
           (org-toodledo-test-message "TEST: creating 2 tasks in db to start")
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")
@@ -442,39 +442,39 @@ in the same state as when the test fails.")
           (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 2")
                                                                     '("id" . "10011")
                                                                     '("parent" . "10010")))
-          
+
           ;; Sync them into buf1
           (org-toodledo-test-message "TEST: initializing buf1")
           (org-toodledo-test-setup-buffer buf1)
-          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
+          (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0)
                                    "Synced in initial tasks 1,2 into buf1")
           )
-        
+
         ;;
         ;; Simulated completed task archiving
         ;;
-        (when (or (member 'sim-completed tests) 
-                  (member 'sim tests) 
+        (when (or (member 'sim-completed tests)
+                  (member 'sim tests)
                   (null tests))
           (let ((org-toodledo-archive-completed-tasks t)
                 (org-archive-location "%s_archive::"))
 
             ;; First round, completed tasks in non-pro-mode
             (org-toodledo-sim-init 0)
-            
+
             ;; Start with 2 tasks on the server
             (org-toodledo-test-message "TEST: creating 2 tasks in db to start")
             (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")
                                                                       '("id" . "10010")))
             (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 2")
                                                                       '("id" . "10011")))
-            
+
             ;; Sync them into buf1
             (org-toodledo-test-message "TEST: initializing buf1")
             (org-toodledo-test-setup-buffer buf1)
-            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0)
                                      "Synced in initial tasks 1,2 into buf1")
-            
+
             ;; Mark task 1 done, sync, make sure it disappears into the archive file
             (org-toodledo-test-goto-task "Task 1")
             (org-todo "DONE")
@@ -485,13 +485,13 @@ in the same state as when the test fails.")
             ;; Sync into buffer 2, should only see Task 2
             (org-toodledo-test-message "TEST: syncing into buffer 2")
             (org-toodledo-test-setup-buffer buf2)
-            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(1 1 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(1 1 0 0 0 0 0)
                                      "Synced in remaining 1 task into buf2")
             (org-toodledo-test-verify-tasks buf1 "Task 2")
 
             ;; Second round, completed tasks in pro-mode
             (org-toodledo-sim-init 1)
-            
+
             ;; Start with 2 tasks on the server
             (org-toodledo-test-message "TEST: creating 2 parent tasks with 2 child tasks in db to start")
             (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 1")
@@ -504,13 +504,13 @@ in the same state as when the test fails.")
             (org-toodledo-sim-db-new-task (org-toodledo-sim-make-task '("title". "ORGTOODLEDOTEST:Task 4")
                                                                       '("id" . "10013")
                                                                       '("parent" . "10012")))
-            
+
             ;; Sync them into buf1
             (org-toodledo-test-message "TEST: initializing buf1")
             (org-toodledo-test-setup-buffer buf1)
-            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(4 4 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(4 4 0 0 0 0 0)
                                      "Synced in initial tasks 1-4 into buf1")
-            
+
             ;; Mark task 1 done, sync, make sure it and it's child task disappear into the archive file
             (org-toodledo-test-goto-task "Task 1")
             (org-todo "DONE")
@@ -522,7 +522,7 @@ in the same state as when the test fails.")
             ;; Sync into buffer 2, should only see Task 2
             (org-toodledo-test-message "TEST: syncing into buffer 2")
             (org-toodledo-test-setup-buffer buf2)
-            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0) 
+            (org-toodledo-test-equal (org-toodledo-initialize "TASKS") '(2 2 0 0 0 0 0)
                                      "Synced in remaining 2 task into buf2")
             (org-toodledo-test-verify-tasks buf1 "Task 3" "Task 4")
             )
@@ -531,15 +531,15 @@ in the same state as when the test fails.")
         ;; All done
         (setq org-toodledo-test-mode nil)
         (setq org-toodledo-sim-mode nil)
-        
+
         (org-toodledo-test-cleanup-file buf1-file)
         (org-toodledo-test-cleanup-file (format "%s_archive" buf1-file))
         (org-toodledo-test-cleanup-file buf2-file)
         (org-toodledo-test-cleanup-file (format "%s_archive" buf2-file))
         (exec-cmd "rm -rf /tmp/org-toodledo-test*")
 
-        (org-toodledo-test-message "Tests complete: %d/%d tests passed" 
-                                   (- org-toodledo-test-count org-toodledo-test-fail) 
+        (org-toodledo-test-message "Tests complete: %d/%d tests passed"
+                                   (- org-toodledo-test-count org-toodledo-test-fail)
                                    org-toodledo-test-count)
         )
       )
@@ -552,7 +552,7 @@ in the same state as when the test fails.")
       (set-buffer buf)
       (save-buffer)
       (kill-buffer))))
-  
+
 (defun org-toodledo-test-message (str &rest args)
   (save-excursion
     (set-buffer org-toodledo-test-msg-buf)
@@ -572,16 +572,16 @@ in the same state as when the test fails.")
     (insert (concat "\n[" (format-time-string "%H:%M:%S") (format "] ========== End of buffer %S ==========" buf) "\n"))
     )
   )
-                
+
 (defun org-toodledo-test-check (value str &rest args)
   (setq org-toodledo-test-count (1+ org-toodledo-test-count))
-  (cond 
+  (cond
    ((not (null value))
     (setq org-toodledo-test-pass (1+ org-toodledo-test-pass))
     (org-toodledo-test-message "PASSED: %s" (apply 'format (append (list str) args)))
     t)
-   
-   (t 
+
+   (t
     (setq org-toodledo-test-fail (1+ org-toodledo-test-fail))
     (org-toodledo-test-message "FAILED: %s" (apply 'format (append (list str) args)))
     (org-toodledo-test-debug-buffer buf1)
@@ -592,16 +592,16 @@ in the same state as when the test fails.")
 
 (defun org-toodledo-test-equal (value1 value2 str &rest args)
   (setq org-toodledo-test-count (1+ org-toodledo-test-count))
-  (cond 
+  (cond
    ((equal value1 value2)
     (setq org-toodledo-test-pass (1+ org-toodledo-test-pass))
     (org-toodledo-test-message "PASSED: %s" (apply 'format (append (list str) args))))
-   
+
    (t
     (setq org-toodledo-test-fail (1+ org-toodledo-test-fail))
-    (org-toodledo-test-message "FAILED: %s [%S != %S]" 
+    (org-toodledo-test-message "FAILED: %s [%S != %S]"
              (apply 'format (append (list str) args))
-             value1 value2 
+             value1 value2
              )
     (org-toodledo-test-debug-buffer buf1)
     (org-toodledo-test-debug-buffer buf2)
@@ -652,13 +652,13 @@ in the same state as when the test fails.")
             (org-mode))
           (insert-string "* TASKS\n")
           (org-toodledo-initialize "TASKS")
-          
+
           ;; Delete all tasks
           (goto-char (point-min))
           (while (re-search-forward "ORGTOODLEDOTEST" nil t)
             (org-toodledo-mark-task-deleted)
             )
-          
+
           (org-toodledo-sync)
           (save-buffer)
           (kill-buffer)
@@ -668,27 +668,27 @@ in the same state as when the test fails.")
   )
 
 (defun org-toodledo-test-compare-tasks (buf1 buf2 &rest titles)
-  (mapcar 
+  (mapcar
    (lambda (title)
      (let (task1 task2)
        ;; Get the task from buf1
        (set-buffer buf1)
        (when (org-toodledo-test-goto-task title)
          (setq task1 (org-toodledo-parse-current-task))
-         
+
          ;; Get the task from buf2
          (set-buffer buf2)
          (when (org-toodledo-test-goto-task title)
            (setq task2 (org-toodledo-parse-current-task))
-           
+
            ;; Compare all fields
-           (mapc 
+           (mapc
             (lambda (task1-assoc)
               (let* ((key1 (car task1-assoc))
                      (value1 (or (cdr task1-assoc) "0"))
                      (task2-assoc (assoc key1 task2))
                      (value2 (or (cdr task2-assoc) "0")))
-                (when (member key1 '("id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate" 
+                (when (member key1 '("id" "title" "status" "completed" "repeat" "repeatfrom" "context" "duedate"
                                      "startdate" "folder" "goal" "priority" "note" "length" "parent" "hash" "tag"))
                   (org-toodledo-test-message "Comparing key %s='%s'" key1 value1)
                   (org-toodledo-test-check task2-assoc "Found key '%s' in task2" key1)
@@ -704,14 +704,14 @@ in the same state as when the test fails.")
   (let ((count 0))
     (while (re-search-forward "ORGTOODLEDOTEST" nil t)
       (setq count (1+ count)))
-    (org-toodledo-test-equal 
+    (org-toodledo-test-equal
      count (length titles) "Verify buffer %S has %d tasks" buffer (length titles))
     )
-  
-  (mapcar 
+
+  (mapcar
    (lambda (title)
-     (org-toodledo-test-check 
-      (save-excursion 
+     (org-toodledo-test-check
+      (save-excursion
         (goto-char (point-min))
         (re-search-forward (concat "ORGTOODLEDOTEST:" title "\\b") nil t))
       "Find task in buffer %S: %s" buffer title))

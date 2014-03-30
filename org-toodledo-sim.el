@@ -21,7 +21,7 @@
   (org-toodledo-debug "Simulated http-post for '%s' with '%S'" method params)
   (with-temp-buffer
     (org-toodledo-sim-xml-init)
-    (cond 
+    (cond
      (org-toodledo-sim-invalid-key (org-toodledo-sim-invalid-key))
      ((string= method "account/token") (org-toodledo-sim-account-token params))
      ((string= method "account/get") (org-toodledo-sim-account-get params))
@@ -58,7 +58,7 @@ Content-Type: application/xml
 (defun org-toodledo-sim-account-token (params)
   (insert-string (format "<token>%d</token>\n" (time-to-seconds)))
 )
-     
+
 ;;
 ;; account/get
 ;;
@@ -69,14 +69,14 @@ Content-Type: application/xml
   (insert-string (format "  <pro>%s</pro>\n" org-toodledo-sim-pro))
   (insert-string "</account>\n")
 )
-     
+
 ;;
 ;; tasks/get
 ;;
 (defun org-toodledo-sim-tasks-get (params)
   (let ((modafter (string-to-int (cdr (assoc "modafter" params))))
         (comp (string-to-int (cdr (assoc "comp" params)))))
-    (org-toodledo-sim-xml-get-tasks 
+    (org-toodledo-sim-xml-get-tasks
      (delq nil
            (mapcar (lambda (task)
                      (if (and (> (string-to-int (org-toodledo-task-modified task)) modafter)
@@ -93,7 +93,7 @@ Content-Type: application/xml
 
 (defun org-toodledo-sim-xml-get-task (task)
   (insert-string "  <task>\n")
-  (mapc (lambda (pair) 
+  (mapc (lambda (pair)
           (let ((f (car pair))
                 (v (cdr pair)))
             (insert-string (format "    <%s>%s</%s>\n" f v f))))
@@ -105,16 +105,16 @@ Content-Type: application/xml
 ;; tasks/deleted
 ;;
 (defun org-toodledo-sim-tasks-deleted (params)
-  (let* 
+  (let*
       ((after (string-to-int (cdr (assoc "after" params))))
-       (del-list 
+       (del-list
         (delq nil
               (mapcar (lambda (elem)
                         (let ((id (car elem))
                               (deltime (cdr elem)))
                           (if (> deltime after) elem nil)))
                       org-toodledo-sim-db-deleted))))
-    
+
     (insert-string (format "<deleted num=\"%d\">\n" (length del-list)))
     (mapc (lambda (elem)
             (insert-string (format "  <task><id>%s</id><stamp>%s</stamp></task>\n" (car elem) (cdr elem))))
@@ -133,7 +133,7 @@ Content-Type: application/xml
                      (cons (symbol-name (car pair)) (cdr pair))) json-task))
      (let ((ref (cdr (assoc "ref" task)))
            (id (org-toodledo-sim-db-new-task task)))
-       (cond 
+       (cond
         ((integerp id)
          (insert-string (format "  <error id='%d'>%s</error>" id (org-toodledo-error-num-to-str (int-to-string id)))))
 
@@ -156,7 +156,7 @@ Content-Type: application/xml
            (mapcar (lambda (pair)
                      (cons (symbol-name (car pair)) (cdr pair))) json-task))
      (let ((id (org-toodledo-sim-db-edit-task task)))
-       (cond 
+       (cond
         ((> id 0)
          (insert-string (format "  <error id='%d'>%s</error>" id (org-toodledo-error-num-to-str (int-to-string id)))))
 
@@ -169,7 +169,7 @@ Content-Type: application/xml
 
 ;;
 ;; tasks/delete
-;; 
+;;
 (defun org-toodledo-sim-tasks-delete (params)
   (insert-string "<deleted>\n")
   (mapc
@@ -187,11 +187,11 @@ Content-Type: application/xml
   (org-toodledo-sim-advance-time)
   (let ((id (org-toodledo-task-id task))
         (title (org-toodledo-task-title task)))
-        
+
     (cond
      ((string-match "simerror=\\([0-9]+\\)" title)
       (string-to-int (match-string 1 title)))
-     
+
      (t
       (if (or (not id) (equal id "0"))
           (setq id (int-to-string (setq org-toodledo-sim-id (1+ org-toodledo-sim-id)))))
@@ -208,11 +208,11 @@ Content-Type: application/xml
     (cond
      ((string-match "simerror=\\([0-9]+\\)" title)
       (string-to-int (match-string 1 title)))
-     
+
      ((null (assoc id org-toodledo-sim-db-tasks))
       ;; invalid task-id
       7)
-     
+
      (t
       (alist-put task "modified" (int-to-string org-toodledo-sim-curtime))
       (setq org-toodledo-sim-lastedit-task org-toodledo-sim-curtime)
@@ -222,7 +222,7 @@ Content-Type: application/xml
 (defun org-toodledo-sim-db-delete-task (id &optional dont-save)
   (org-toodledo-sim-advance-time)
   (if (null (assoc id org-toodledo-sim-db-tasks))
-      (progn 
+      (progn
         (org-toodledo-debug "org-toodledo-sim-db-delete-task: task not found %S" id)
         nil)
     (org-toodledo-debug "org-toodledo-sim-db-delete-task: deleting task %S" id)
@@ -238,8 +238,8 @@ Content-Type: application/xml
 
 (defun org-toodledo-sim-folders-get (params)
   (insert-string "<folders>")
-  (mapc (lambda (f) 
-          (insert-string 
+  (mapc (lambda (f)
+          (insert-string
            (format "<folder><id>%s</id><private>0</private><archived>0</archived><order>%s</order><name>%s</name></folder>"
                    (cdr (assoc "id" f))
                    (cdr (assoc "order" f))
@@ -276,7 +276,7 @@ Content-Type: application/xml
   (let ((f `(("id" . ,id)
              ("name" . ,name)
              ("order" . ,order))))
-           
+
   (setq org-toodledo-sim-db-folders
         (append org-toodledo-sim-db-folders (list f)))))
 
