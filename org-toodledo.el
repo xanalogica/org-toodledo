@@ -772,7 +772,7 @@ should only be used for the short period of time when a new task is ")
   (while (re-search-forward (concat "^ *:\\("
                                     (mapconcat 'identity org-toodledo-property-names "\\|")
                                     "\\):") nil t)
-    (org-delete-property (match-string 1) "PROPERTIES"))
+    (org-entry-delete nil (match-string 1) "PROPERTIES"))
   (goto-char (point-min))
   )
 
