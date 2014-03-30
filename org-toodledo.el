@@ -687,6 +687,7 @@ values represent the keys for use in org-toodledo-status-to-org-map"
     "ToodledoFolder"
     "ToodledoGoal"
     "ToodledoFolderID"
+    "ToodledoSyncError"
     )
   "List of org properties added by org-toodledo")
 
@@ -918,7 +919,7 @@ retrieved. "
             (with-temp-buffer
               (insert response)
               (xml-parse-region (point-min) (point-max))))
-      (when org-toodledo-debug
+      (when (>= org-toodledo-log-level 2)
         (org-toodledo-debug2 "org-toodledo-token:\n--- response:\n%S\n--- parsed response:\n%S\n---"
                              response parsed-response))
       (if (equal (car (car parsed-response)) 'error)
@@ -1564,7 +1565,7 @@ an alist of the task fields."
               (list
                (cons "id" id)
                (cons "title" title)
-               (cons "length" (org-entry-get (point) "Effort"))
+               (cons "length" (or (org-entry-get (point) "Effort") "0"))
                (cons "context" context)
                (cons "tag" (mapconcat 'identity tags ","))
                (cons "completed"
@@ -1574,6 +1575,8 @@ an alist of the task fields."
                (cons "priority" (org-toodledo-org-to-priority priority))
                (cons "note"
                      (org-toodledo-entry-note))))
+
+        (org-toodledo-debug "parsed-task: %s" info)
 
         ;; Set task folder
         (alist-put
@@ -1586,61 +1589,67 @@ an alist of the task fields."
 
           ;; Store folder in ToodledoFolder property
           (t
-           (if (org-entry-get nil "ToodledoFolder") (org-toodledo-folder-to-id (org-entry-get nil "ToodledoFolder")) "0"))))
-
+           (if (org-entry-get nil "ToodledoFolder")
+               (org-toodledo-folder-to-id
+                (org-entry-get nil "ToodledoFolder")) "0"))))
 
         (alist-put info "goal"
-                   (if (org-entry-get nil "ToodledoGoal") (org-toodledo-goal-to-id (org-entry-get nil "ToodledoGoal")) "0"))
+                   (if (org-entry-get nil "ToodledoGoal")
+                       (org-toodledo-goal-to-id
+                        (org-entry-get nil "ToodledoGoal")) "0"))
 
         (alist-put info "repeat" "")
         (alist-put info "repeatfrom" "0")
 
-        (alist-put info "startdate" "0")
-        (alist-put info "starttime" "0")
-        (when scheduled
-          (alist-put info "startdate" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t)))
+        ;; Process startdate/starttime from scheduled and
+        ;; duedate/duetime from deadline.  Both can have a repeat in
+        ;; Toodledo, but org only supports one repeat.  The repeat
+        ;; from deadline will override the repeat from scheduled
+        ;; if both are present
+        (mapc
+         (lambda (elem)
+           (let ((datestr (nth 0 elem))
+                 (timestr (nth 1 elem))
+                 (date (nth 2 elem)))
+             (alist-put info datestr "0")
+             (alist-put info timestr "0")
+             (when date
+               ;; Passing t as 2nd arg to
+               ;; org-toodledo-time-string-to-seconds adjusts for
+               ;; timezone, since duedate/duetime/startdate/starttime
+               ;; are expected to float according to local time.  This
+               ;; is passed to the server as GMT time.
+               ;;
+               ;;   "<2012-01-31 Tue>" - no time component -> Noon GMT
+               ;;   "<2012-01-31 Tue 08:00>" - time component -> 8:00 GMT
+               ;;
+               ;; org-toodledo-time-string-to-seconds with t passed as
+               ;; 2nd param will give the time as GMT
+               (alist-put
+                info datestr
+                (format "%.0f" (org-toodledo-time-string-to-seconds date t)))
 
-          (when (cadr (org-parse-time-string scheduled t))
-            (alist-put info "starttime" (format "%.0f" (org-toodledo-time-string-to-seconds scheduled t))))
+               ;; Check for a time component, and if so set the
+               ;; duetime as well Note that org-parse-time-string
+               ;; returns a list with the 2nd and 3rd items
+               ;; representing the minutes and hour.  If no-time
+               ;; component was set, it returns nil, otherwise a
+               ;; number.  Important to distinguish between 0 and nil,
+               ;; as the user may have a deadline of "<2012-01-30 Mon
+               ;; 00:00>" which will yield 0 and 0 for hour/minutes.
+               (when (cadr (org-parse-time-string date t))
+                 (alist-put
+                  info timestr
+                  (format "%.0f" (org-toodledo-time-string-to-seconds date t))))
 
-          ;; Add on the repeat
-          (let ((repeat (org-toodledo-org-to-repeat scheduled)))
-            (when repeat
-              (alist-put info "repeat" (car repeat))
-              (alist-put info "repeatfrom" (cdr repeat))
-              )
-            )
-          )
-
-        (alist-put info "duedate" "0")
-        (alist-put info "duetime" "0")
-        (when deadline
-          ;; Passing t as 2nd arg to org-toodledo-time-string-to-seconds adjusts for timezone,
-          ;; since duedate/duetime/startdate/starttime are expected to float according to local
-          ;; time.  This is passed to the server as GMT time.
-          ;;   "<2012-01-31 Tue>" - no time component, set date as Noon GMT
-          ;;   "<2012-01-31 Tue 08:00>" - time component, set date as 8:00 GMT
-          ;;
-          ;; org-toodledo-time-string-to-seconds with t passed as 2nd param will give the time as GMT
-          (alist-put info "duedate" (format "%.0f" (org-toodledo-time-string-to-seconds deadline t)))
-
-          ;; Check for a time component, and if so set the duetime as well
-          ;; Note that org-parse-time-string returns a list with the 2nd and 3rd
-          ;; items representing the minutes and hour.  If no-time component was set,
-          ;; it returns nil, otherwise a number.  Important to distinguish between
-          ;; 0 and nil, as the user may have a deadline of "<2012-01-30 Mon 00:00>" which
-          ;; will yield 0 and 0 for hour/minutes.
-          (when (cadr (org-parse-time-string deadline t))
-            (alist-put info "duetime" (format "%.0f" (org-toodledo-time-string-to-seconds deadline t))))
-
-          ;; Add on the repeat
-          (let ((repeat (org-toodledo-org-to-repeat deadline)))
-            (when repeat
-              (alist-put info "repeat" (car repeat))
-              (alist-put info "repeatfrom" (cdr repeat))
-              )
-            )
-          )
+               ;; Add on the repeat
+               (let ((repeat (org-toodledo-org-to-repeat date)))
+                 (when repeat
+                   (alist-put info "repeat" (car repeat))
+                   (alist-put info "repeatfrom" (cdr repeat))
+                   )))))
+         `(("startdate" "starttime" ,scheduled)
+           ("duedate" "duetime" ,deadline)))
 
         (when (org-toodledo-do-parent) (alist-put info "parent" (org-toodledo-get-parent-id)))
         info))))
@@ -1737,7 +1746,7 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
 
   If FILTER-CHILD is t, only process tasks that are children (ie, they
   have a non-zero parent).  If nil, only process parent tasks."
-  (when org-toodledo-debug
+  (when (>= org-toodledo-log-level 1)
     (org-toodledo-debug "org-toodledo-process-task: task '%s'" (org-toodledo-task-title task))
     (org-toodledo-debug2 "  task definition: %S" task))
   (let* ((parent (org-toodledo-task-parent task))
@@ -1752,10 +1761,8 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
                    (touched (not (string= hash computed-hash)))
                    (level (elt (org-heading-components) 0))
                    )
-              (when org-toodledo-debug
-                (org-toodledo-debug "Found existing task: (hash %S, computed-hash %S, touched %S, level %S)"
-                                    hash computed-hash touched level)
-                )
+              (org-toodledo-debug "Found existing task: (hash %S, computed-hash %S, touched %S, level %S)"
+                                  hash computed-hash touched level)
               (cond
 
                ;; Not touched locally, and server did modify it; delete and recreate
@@ -1998,7 +2005,8 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
           (org-entry-put (point) "ToodledoGoal" (org-toodledo-id-to-goal goal)))
 
       (if length
-          (org-entry-put (point) "Effort" (org-toodledo-task-length task)))
+          (org-entry-put (point) "Effort" (org-toodledo-task-length task))
+        )
 
       (if compute-hash
           (org-toodledo-compute-hash t)
@@ -2626,7 +2634,7 @@ a list of alists of fields returned from the server."
           (insert (car response))
           (setq parsed-response (xml-parse-region (point-min) (point-max))))
 
-        (when org-toodledo-debug
+        (when (>= org-toodledo-log-level 1)
           (org-toodledo-debug "org-toodledo-call-method: '%s'" url)
           (org-toodledo-debug2 "\n--- params:\n%S\n--- response:\n%S\n--- parsed response:\n%S\n---"
                                send-params response parsed-response)
