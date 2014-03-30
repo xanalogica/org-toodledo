@@ -4,7 +4,7 @@
 
 ;; Author: Christopher J. White <emacs@grierwhite.com>
 ;; Created: 7 Sep 2011
-;; Version: 2.13
+;; Version: 2.16
 ;; Keywords: outlines, data
 
 ;; GNU General Public License v2 (GNU GPL v2),
@@ -228,6 +228,7 @@
 ;; - Revamp how deleted tasks are handled, just store the deleted
 ;;   task ids instead of the "Deleted Tasks" folder
 ;;
+
 ;; - Support for `org-toodledo-archive-deleted-tasks'.  When non-nil
 ;;   deleted tasks are automatically archived after synced to the
 ;;   the server.  This is related to github issue #17.
@@ -261,7 +262,7 @@
 ;; - Fixed issue #29 - added `org-toodledo-post-sync-hook' to call after
 ;;   each synchronization, even if errors occurred.
 ;;
-;;  2013-11-30  (jeffkowalski) -
+;; 2013-11-30  (jeffkowalski) - Version 2.16
 ;; - Whitespace cleanup
 ;;
 ;; - Support for 'org-toodledo-preserve-drawers'.  When non-nil drawer
@@ -270,6 +271,11 @@
 ;;
 ;; - Set Repeat even if only the SCHEDULED/start repeats, and the DEADLINE
 ;;   does not.
+;;
+;;  2014-03-30  (cjwhite) - Version 2.16
+;; - Fixed problem with "Effort" showing up in drawers when not expected
+;;
+
 
 ;;; Installation:
 ;;
@@ -346,12 +352,12 @@
 (require 'url)
 (require 'url-http)
 (require 'org-agenda)
-(require 'org-toodledo-test)
-(require 'org-toodledo-sim)
 
 (declare-function org-columns-quit "org-colview.el")
 (declare-function org-toodledo-get-contexts "org-toodledo.el")
 (declare-function org-toodledo-get-goals "org-toodledo.el")
+(declare-function org-toodledo-test "org-toodledo-test.el")
+(declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
 
 ;;
 ;; User customizable variables
@@ -2768,12 +2774,18 @@ lists."
 (defun org-toodledo-run-sim-tests()
   "Run only simulated org-toodledo tests"
   (interactive)
+  (condition-case nil
+      (require 'org-toodledo-test)
+    (error (error "The file `org-toodledo-test` not available, download directly from source")))
   (org-toodledo-test 'sim)
 )
 
 (defun org-toodledo-run-tests ()
   "Run org-toodledo-test suite"
   (interactive)
+  (condition-case nil
+      (require 'org-toodledo-test)
+    (error (error "The file `org-toodledo-test` not available, download directly from source")))
   (when (y-or-n-p "Switch to test account and run org-toodledo tests? ")
     (let ((old-userid org-toodledo-userid)
           (old-password org-toodledo-password))
@@ -2866,6 +2878,9 @@ lists."
 (defun org-toodledo-toggle-sim ()
   "Toggle simulation of http post requests for testing and debug.  See `org-toodledo-sim'"
   (interactive)
+  (condition-case nil
+      (require 'org-toodledo-sim)
+    (error (error "The file `org-toodledo-sim` not available, download directly from source")))
   (setq org-toodledo-sim-mode (not org-toodledo-sim-mode))
   (org-toodledo-clear-cached-vars)
   (if (not org-toodledo-sim-mode)

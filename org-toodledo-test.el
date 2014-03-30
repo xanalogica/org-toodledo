@@ -1,3 +1,5 @@
+(require 'org-toodledo-sim)
+
 (defvar org-toodledo-test-stop-on-error nil
   "Set to t to stop tests on first error.  Useful to leave buffers
 in the same state as when the test fails.")
