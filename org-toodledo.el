@@ -532,7 +532,7 @@ Where:
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
 (defconst org-toodledo-apptoken "api4e4fbf7454eeb" "Toodledo apptoken associated with appid for API 2.0")
 
-(defconst org-toodledo-version "2.15")
+(defconst org-toodledo-version "2.16")
 
 (defmacro org-toodledo-make-lookup-function (name)
   "Create a lookup function and caching functions for NAME.
@@ -1726,6 +1726,8 @@ an alist of the task fields."
               (org-add-planning-info 'closed (org-current-effective-time))
               (setq closed (org-entry-get nil "CLOSED"))))
 
+        ;; tags-context is a list of tags from toodledo
+        ;; treate '@<label>' as context, otherwise a tag
         (when tags-context
           (dolist (tag tags-context)
             (if (> (length tag) 0)
