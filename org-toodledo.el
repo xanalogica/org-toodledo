@@ -2364,9 +2364,7 @@ and from the local org file on the next sync"
           ;; Remove drawers
           (when (not org-toodledo-preserve-drawers)
             (goto-char (point-min))
-            (let ((re (concat "^[ \t]*:\\("
-                              (mapconcat 'identity org-drawers "\\|")
-                              "\\):[ \t]*$"))
+            (let ((re org-drawer-regexp)
                   name beg beg-content eol content)
               (while (re-search-forward re nil t)
                 (setq name (match-string 1))
