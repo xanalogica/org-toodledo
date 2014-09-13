@@ -597,47 +597,45 @@ Reload if FORCE is non-nil.")
     )
   )
 
-(eval-when-compile
-  (org-toodledo-make-lookup-function "context")
-  (org-toodledo-make-lookup-function "goal")
 
-  (defconst org-toodledo-fields
-    '(
-      ;; Toodledo recongized fields
-      "id" "title" "status" "completed" "repeat" "repeatfrom" "context"
-      "duedate" "duetime" "startdate" "starttime" "modified" "folder"
-      "goal" "priority" "note" "length" "parent" "tag"
-      ;; org-toodledo only fields
-      "sync" "hash")
-    "All fields related to a task"
-    )
+(org-toodledo-make-lookup-function "context")
+(org-toodledo-make-lookup-function "goal")
 
-  (defconst org-toodledo-fields-check-empty-or-zero
-    '("folder" "goal" "context" "length")
-    "Fields that should be set to nil if either \"0\" or \"\""
-    )
-
-  ;; Create a convenience function "org-toodled-task-<field>" for each field
-  ;; of a task
-
-  (mapc (lambda (field)
-          (if (member field org-toodledo-fields-check-empty-or-zero)
-              (eval
-               `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
-                  ,(concat "Return the task property '" field
-                           "' for TASK, return nil if \"0\" or \"\"")
-                  (let ((value (cdr (assoc ,field task))))
-                    (if (and value (not (equal value "0"))
-                             (not (equal value "")))
-                        value
-                      nil))))
-
-            (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
-                     ,(concat "Return the task property '" field "' for TASK")
-                     (cdr (assoc ,field task))))))
-        org-toodledo-fields)
-
+(defconst org-toodledo-fields
+  '(
+    ;; Toodledo recongized fields
+    "id" "title" "status" "completed" "repeat" "repeatfrom" "context"
+    "duedate" "duetime" "startdate" "starttime" "modified" "folder"
+    "goal" "priority" "note" "length" "parent" "tag"
+    ;; org-toodledo only fields
+    "sync" "hash")
+  "All fields related to a task"
   )
+
+(defconst org-toodledo-fields-check-empty-or-zero
+  '("folder" "goal" "context" "length")
+  "Fields that should be set to nil if either \"0\" or \"\""
+  )
+
+;; Create a convenience function "org-toodled-task-<field>" for each field
+;; of a task
+
+(mapc (lambda (field)
+        (if (member field org-toodledo-fields-check-empty-or-zero)
+            (eval
+             `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
+                ,(concat "Return the task property '" field
+                         "' for TASK, return nil if \"0\" or \"\"")
+                (let ((value (cdr (assoc ,field task))))
+                  (if (and value (not (equal value "0"))
+                           (not (equal value "")))
+                      value
+                    nil))))
+          
+          (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
+                   ,(concat "Return the task property '" field "' for TASK")
+                   (cdr (assoc ,field task))))))
+      org-toodledo-fields)
 
 (defconst org-toodledo-fields-dont-ask
   '(
