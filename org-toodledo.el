@@ -826,7 +826,7 @@ time when a new task is ")
           (concat "^ *:\\("
                   (mapconcat 'identity org-toodledo-property-names "\\|")
                   "\\):") nil t)
-    (org-entry-delete nil (match-string 1) "PROPERTIES"))
+    (org-entry-delete nil (match-string 1)))
   (goto-char (point-min))
   )
 
