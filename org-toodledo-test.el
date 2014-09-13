@@ -15,7 +15,7 @@ in the same state as when the test fails.")
     (setq org-toodledo-log-level 3)
     (set-buffer (get-buffer-create "*Org-toodledo-log*"))
     (erase-buffer)
-    (exec-cmd "rm -rf /tmp/org-toodledo-test*")
+    (shell-command "rm -rf /tmp/org-toodledo-test*")
 
     (let ((org-toodledo-test-count 0)
           (org-toodledo-test-pass 0)
@@ -623,7 +623,7 @@ in the same state as when the test fails.")
         (org-toodledo-test-cleanup-file (format "%s_archive" buf1-file))
         (org-toodledo-test-cleanup-file buf2-file)
         (org-toodledo-test-cleanup-file (format "%s_archive" buf2-file))
-        (exec-cmd "rm -rf /tmp/org-toodledo-test*")
+        (shell-command "rm -rf /tmp/org-toodledo-test*")
 
         (org-toodledo-test-message
          "Tests complete: %d/%d tests passed"
