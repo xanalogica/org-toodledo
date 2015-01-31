@@ -31,6 +31,7 @@
      - State \"WAITING\"    from \"WAITING\"    [2015-01-23 金 15:50]\n
      :END:\n
      - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")
+     (goto-char (point-max))
     ;;(save-buffer)
 ))
 
