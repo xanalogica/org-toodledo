@@ -1,4 +1,6 @@
-Overview
+[![Build Status](https://travis-ci.org/myuhe/org-toodledo.svg?branch=master)](https://travis-ci.org/myuhe/org-toodledo)
+
+Overview 
 --------
 
 This package adds the ability to sync org-mode tasks with
