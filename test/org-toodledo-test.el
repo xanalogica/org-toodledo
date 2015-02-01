@@ -1,4 +1,7 @@
 (require 'ert)
+(require 'undercover)
+(undercover "org-toodledo.el")
+
 (require 'org-toodledo)
 
 (defun org-toodledo-test-setup-buffer (name)
