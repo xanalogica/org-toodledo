@@ -18,6 +18,5 @@ test:
 	${CASK} exec ert-runner
 clean:
 	${CASK} clean-elc
-	rm ./test/*.elc
 
 .PHONY: all compile test clean
