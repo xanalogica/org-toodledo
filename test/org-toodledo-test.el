@@ -30,9 +30,12 @@
      :LOGBOOK:\n
      - State \"WAITING\"    from \"WAITING\"    [2015-01-23 金 15:50]\n
      :END:\n
-     - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")))
+     - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")
+    ;;(save-buffer)
+))
 
 (ert-deftest org-toodledo-initialize-test ()
+<<<<<<< HEAD
   (let ((buf (get-buffer-create "*test*")))
     (set-buffer buf)
     (erase-buffer)
@@ -81,4 +84,26 @@
                      ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
     (setq actual (org-toodledo-parse-current-task))
     (should (equal expected actual))))
+=======
+  (org-toodledo-test-setup-buffer "*test*")
+  (setq expected '(("duetime" . "0")
+                   ("duedate" . "0")
+                   ("starttime" . "0")
+                   ("startdate" . "0")
+                   ("repeatfrom" . "0")
+                   ("repeat" . "")
+                   ("goal" . "0")
+                   ("folder" . "0")
+                   ("id")
+                   ("title" . "Test2")
+                   ("length" . "0")
+                   ("context" . "1200627")
+                   ("tag" . "")
+                   ("completed" . "0")
+                   ("status" . "5")
+                   ("priority" . "0")
+                   ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
+  (setq actual (org-toodledo-parse-current-task))
+  (should (equal (buffer-name (current-buffer)) "*test*")))
+>>>>>>> parent of 2c21e66... Fix test
 
