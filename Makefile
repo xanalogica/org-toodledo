@@ -5,6 +5,8 @@ all:
 	${MAKE} clean
 	${MAKE} test
 	${MAKE} clean
+	${MAKE} compile
+	${MAKE} clean
 
 compile:
 	${CASK} exec ${EMACS} -Q -batch -L . -eval \
