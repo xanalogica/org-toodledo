@@ -2571,7 +2571,7 @@ lists."
 (defun org-toodledo-mapsublist (function list step)
   (let ((len (length list))
         result)
-    (do ((offset 0 (+ step offset))) ((> offset len) nil)
+    (cl-do ((offset 0 (+ step offset))) ((> offset len) nil)
       (let ((pr (funcall function
                          (org-toodledo-sublist list offset
                                                (+ offset step)))))
