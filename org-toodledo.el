@@ -113,7 +113,24 @@
 (declare-function org-columns-quit "org-colview.el")
 (declare-function org-toodledo-test "org-toodledo-test.el")
 (declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
-
+(declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
+(declare-function org-toodledo-task-title "org-toodledo.el")
+(declare-function org-toodledo-task-parent "org-toodledo.el")
+(declare-function org-toodledo-task-repeat "org-toodledo.el")
+(declare-function org-toodledo-task-repeatfrom "org-toodledo.el")
+(declare-function org-toodledo-task-priority "org-toodledo.el")
+(declare-function org-toodledo-task-context "org-toodledo.el")
+(declare-function org-toodledo-task-note "org-toodledo.el")
+(declare-function org-toodledo-task-duedate "org-toodledo.el")
+(declare-function org-toodledo-task-duetime "org-toodledo.el")
+(declare-function org-toodledo-task-startdate "org-toodledo.el")
+(declare-function org-toodledo-task-starttime "org-toodledo.el")
+(declare-function org-toodledo-task-folder "org-toodledo.el")
+(declare-function org-toodledo-task-goal "org-toodledo.el")
+(declare-function org-toodledo-task-length "org-toodledo.el")
+(declare-function org-toodledo-task-tag "org-toodledo.el")
+(declare-function org-toodledo-task-completed "org-toodledo.el")
+(declare-function org-toodledo-task-status "org-toodledo.el")
 ;;
 ;; User customizable variables
 ;;
@@ -278,8 +295,8 @@ Reload if FORCE is non-nil.")
                   (mapcar
                    (lambda (node)
                      (cons
-                      (caddar (xml-get-children node 'name))
-                      (caddar (xml-get-children node 'id))))
+                      (cl-caddar (xml-get-children node 'name))
+                      (cl-caddar (xml-get-children node 'id))))
                    (xml-get-children
                     (car (org-toodledo-call-method ,get-method))
                     (quote ,(intern name)))))
@@ -300,7 +317,7 @@ Reload if FORCE is non-nil.")
                   (setq ,(intern cache-var)
                         (cons
                          (cons item
-                               (caddar (xml-get-children
+                               (cl-caddar (xml-get-children
                                         (car (xml-get-children
                                               (car result)
                                               (quote ,(intern name))))
@@ -2376,10 +2393,10 @@ to headings based on the folder naming as follows:
                               (cddr m)))))
 
                 ((eq (car m) 'error)
-                 (cons 'error  (cdaadr m))))
+                 (cons 'error  (cl-cdaadr m))))
 
              nil))
-         (cddar xmlresult))))
+         (cl-cddar xmlresult))))
 
 (defun org-toodledo-server-addedit-tasks (method tasks)
   "Add/edit TASKS, a list of alists of task fields to set.  This returns
@@ -2404,9 +2421,9 @@ a list of alists of fields returned from the server."
               (lambda (m)
                 (if (listp m)
                     (if (eq (car m) 'error)
-                        (cons 'error (cdaadr m))
+                        (cons 'error (cl-cdaadr m))
                       (caddr m))))
-              (cddar (org-toodledo-call-method "tasks/delete" params))))))
+              (cl-cddar (org-toodledo-call-method "tasks/delete" params))))))
    taskids 50))
 
 (defun org-toodledo-call-method (method-name &optional params)
@@ -2443,7 +2460,7 @@ a list of alists of fields returned from the server."
           (setq org-toodledo-last-parsed-response parsed-response))
 
         (if (eq 'error (caar parsed-response))
-            (let* ((num (cdr (caadar parsed-response)))
+            (let* ((num (cdr (cl-caadar parsed-response)))
                    (code (org-toodledo-error-num-to-code num)))
               (if (<= retries 0)
                   (org-toodledo-die
@@ -2459,14 +2476,14 @@ a list of alists of fields returned from the server."
                (t
                 (org-toodledo-die
                  (format "Call to %s failed: %s, not retrying"
-                         method-name (caddar parsed-response))))))
+                         method-name (cl-caddar parsed-response))))))
 
           (setq done t))))
 
     (if (and parsed-response done)
         parsed-response
       (org-toodledo-die (format "Call to %s failed: %s" method-name
-                                (caddar parsed-response))))))
+                                (cl-caddar parsed-response))))))
 
 
 (defun org-toodledo-convert-xml-to-lookup-list (xml-resp tag)
@@ -2474,8 +2491,8 @@ a list of alists of fields returned from the server."
   (mapcar
    (lambda (node)
      (cons
-      (caddar (xml-get-children node 'name))
-      (caddar (xml-get-children node 'id))))
+      (cl-caddar (xml-get-children node 'name))
+      (cl-caddar (xml-get-children node 'id))))
    (xml-get-children (car xml-resp) tag)))
 
 (defun org-toodledo-get-folders (&optional force)
