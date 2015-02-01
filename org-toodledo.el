@@ -109,6 +109,8 @@
 (require 'url)
 (require 'url-http)
 (require 'org-agenda)
+(when (version< emacs-version "24.3")
+  (eval-when-compile (require 'cl)))
 
 (declare-function org-columns-quit "org-colview.el")
 (declare-function org-toodledo-test "org-toodledo-test.el")
