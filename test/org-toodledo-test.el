@@ -16,24 +16,14 @@
     :Parent-id:
     :LAST_REPEAT: [2015-01-14 水 16:52]
     :END:
-** WAITING [#D] Test2  :@work:
-     :PROPERTIES:
-     :ToodledoID: 393773069
-     :Hash:     3da632c2b88319569f648c35506cf0ba
-     :Parent-id:
-     :END:")))
+** WAITING [#D] Test2  :@work:  :PROPERTIES:   :ToodledoID: 393773069   :Hash:     3da632c2b88319569f648c35506cf0ba :Parent-id:   :END:")))
 
 (defun org-toodledo-parse-test ()
   "Parse the org task at point and extract all toodledo related fields.  Return
 an alist of the task fields."
   (save-excursion
     (org-back-to-heading t)
-    (when (and (looking-at org-complex-heading-regexp)
-               (match-string 2)) ;; the TODO keyword
-      (org-toodledo-debug "org-toodledo-parse-current-task: %s"
-                          (match-string 0))
-      (progn(looking-at org-complex-heading-regexp)
-            (match-string 2)))))
+      (looking-at org-complex-heading-regexp)))
 
 (ert-deftest org-toodledo-initialize-test ()
   (setq expected '(("duetime" . "0")
@@ -55,4 +45,4 @@ an alist of the task fields."
                    ("note" . "")))
     (org-toodledo-test-setup-buffer "*test*")
     (setq actual (org-toodledo-parse-test))
-    (should (equal "WAITING" actual)))
+    (should (equal t actual)))
