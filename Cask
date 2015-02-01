@@ -5,5 +5,4 @@
 
 (development
  (depends-on "ert-runner")
- (depends-on "http-post-simple")
  (depends-on "cl-lib"))

@@ -15,7 +15,7 @@ compile:
      (setq byte-compile-error-on-warn t)) \
      (batch-byte-compile))" org-toodledo.el
 test:
-	${EMACS} -Q -batch -L . -l test/org-toodledo-test.el -f ert-run-tests-batch-and-exit
+	${CASK} exec ert-runner
 clean:
 	rm -f org-toodledo.elc
 
