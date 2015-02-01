@@ -25,14 +25,6 @@
     :LAST_REPEAT: [2015-01-14 水 16:52]
     :END:")))
 
-(defun org-toodledo-parse-test ()
-  "Parse the org task at point and extract all toodledo related fields.  Return
-an alist of the task fields."
-  (save-excursion
-    (org-back-to-heading t)
-    (looking-at org-complex-heading-regexp)
-    (match-string-no-properties 2)))
-
 (ert-deftest org-toodledo-initialize-test ()
   (setq expected '(("repeatfrom" . "0")
                    ("repeat" . "Every 1 month")
