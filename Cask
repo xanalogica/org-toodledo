@@ -7,4 +7,4 @@
  (depends-on "ert-runner")
   (depends-on "undercover")
   (depends-on "http-post-simple")
- (depends-on "cl-lib"))
+  (depends-on "cl-lib"))
