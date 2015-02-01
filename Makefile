@@ -12,7 +12,7 @@ compile:
 	${CASK} exec ${EMACS} -Q -batch -L . -eval \
 	"(progn \
 	(setq byte-compile-error-on-warn t) \
-	(batch-byte-compile))" guide-key.el
+	(batch-byte-compile))" org-toodledo.el
 test:
 	${CASK} exec ert-runner
 clean:
