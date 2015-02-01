@@ -31,8 +31,9 @@ an alist of the task fields."
     (looking-at org-complex-heading-regexp)
     (match-string-no-properties 2)))
 
-(ert-deftest org-toodledo-initialize-test ()
-  (setq org-toodledo-password "dummy")
+(ert-deftest org-toodledo-parse-test ()
+  (setq org-toodledo-userid   "dummy"
+        org-toodledo-password "dummy")
   (setq expected '(("duetime" . "0")
                    ("duedate" . "0")
                    ("starttime" . "0")
