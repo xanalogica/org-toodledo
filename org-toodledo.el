@@ -111,8 +111,6 @@
 (require 'org-agenda)
 
 (declare-function org-columns-quit "org-colview.el")
-(declare-function org-toodledo-get-contexts "org-toodledo.el")
-(declare-function org-toodledo-get-goals "org-toodledo.el")
 (declare-function org-toodledo-test "org-toodledo-test.el")
 (declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
 
@@ -246,9 +244,12 @@ Where:
 (defvar org-toodledo-goals nil "Map of goal names to ids")
 (defvar org-toodledo-contexts nil "Map of context names to ids")
 
+(defvar org-toodledo-archive-deleted-tasks nil)
+
 (defvar org-toodledo-sim-mode nil "Set to t to simulate http posts, used for testing")
 (defvar org-toodledo-last-parsed-response nil "Used to store the last parsed xml response when debug enabled")
 (defvar org-toodledo-errors nil "List of errors for the last operation")
+
 
 ;; Registered application ID and token for Toodledo API 2.0
 (defconst org-toodledo-appid "orgtoodledo2" "Toodledo registered appid for API 2.0")
