@@ -50,5 +50,5 @@ an alist of the task fields."
                    ("priority" . "0")
                    ("note" . "")))
     (org-toodledo-test-setup-buffer "*test*")
-    (setq actual (org-toodledo-parse-current-task))
+    (setq actual (org-toodledo-parse-test))
     (should (equal "TODO" actual)))
