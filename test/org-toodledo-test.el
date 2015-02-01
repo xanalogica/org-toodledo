@@ -1,5 +1,5 @@
 (require 'ert)
-(require 'undercover)
+;;(require 'undercover)
 ;;(undercover "org-toodledo.el")
 (require 'org-toodledo)
 

@@ -17,6 +17,7 @@ compile:
 test:
 	${CASK} exec ert-runner
 clean:
-	rm -f org-toodledo.elc
+	${CASK} clean-elc
+	rm ./test/*.elc
 
 .PHONY: all compile test clean
