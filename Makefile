@@ -11,8 +11,8 @@ all:
 compile:
 	${CASK} exec ${EMACS} -Q -batch -L . -eval \
 	"(progn \
-     (setq byte-compile-error-on-warn t) \
-     (batch-byte-compile))" org-toodledo.el
+	(setq byte-compile-error-on-warn t) \
+	(batch-byte-compile))" org-toodledo.el
 test:
 	${CASK} exec ert-runner
 clean:
