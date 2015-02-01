@@ -54,5 +54,5 @@
                    ("priority" . "0")
                    ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
   (setq actual (org-toodledo-parse-current-task))
-  (should (equal (buffer-name (current-buffer) "*test*"))))
+  (should (equal (buffer-name (current-buffer)) "*test*")))
 
