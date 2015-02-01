@@ -31,12 +31,11 @@
      - State \"WAITING\"    from \"WAITING\"    [2015-01-23 金 15:50]\n
      :END:\n
      - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")
-     (goto-char (point-max))
     ;;(save-buffer)
 ))
 
 (ert-deftest org-toodledo-initialize-test ()
-  (org-toodledo-test-setup-buffer "test")
+  (org-toodledo-test-setup-buffer "*test*")
   (setq expected '(("duetime" . "0")
                    ("duedate" . "0")
                    ("starttime" . "0")
@@ -55,5 +54,5 @@
                    ("priority" . "0")
                    ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
   (setq actual (org-toodledo-parse-current-task))
-  (should (equal actual expected)))
+  (should (equal (buffer-name (current-buffer) "*test*"))))
 
