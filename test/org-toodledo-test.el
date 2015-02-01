@@ -30,9 +30,7 @@
      :LOGBOOK:\n
      - State \"WAITING\"    from \"WAITING\"    [2015-01-23 金 15:50]\n
      :END:\n
-     - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")
-    ;;(save-buffer)
-))
+     - State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]\n")))
 
 (ert-deftest org-toodledo-initialize-test ()
   (org-toodledo-test-setup-buffer "*test*")
@@ -54,5 +52,5 @@
                    ("priority" . "0")
                    ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
   (setq actual (org-toodledo-parse-current-task))
-  (should (equal (buffer-name (current-buffer)) "*test*")))
+  (should (equal expected actual)))
 
