@@ -3,11 +3,11 @@ notifications:
   email: false
 env:
   matrix:
-    - EMACS=emacs EVM_EMACS=emacs-24.1-bin
-    - EMACS=emacs EVM_EMACS=emacs-24.2-bin
-    - EMACS=emacs EVM_EMACS=emacs-24.3-bin
+    # - EMACS=emacs EVM_EMACS=emacs-24.1-bin
+    # - EMACS=emacs EVM_EMACS=emacs-24.2-bin
+    # - EMACS=emacs EVM_EMACS=emacs-24.3-bin
     - EMACS=emacs EVM_EMACS=emacs-24.4-bin
-    - EMACS=emacs-snapshot EMACS_PPA=ppa:ubuntu-elisp/ppa
+    # - EMACS=emacs-snapshot EMACS_PPA=ppa:ubuntu-elisp/ppa
   global:
     - secure: "gyzLigVUtXpLg/xtlyR8W5+72px9IndUPQzZuP9SoUcyPkHoh4lP8lqk3QfMtwGJfQsFlUUBwWtKG5ORyXYmYPCuesbw/eR16s3s5HLD9wc+T+JHWAwEucznNusELr503mFUtmh4dMKnqfzpw4xduW6GCIlnLx5KLwU+ZN8044s="
 before_install:
