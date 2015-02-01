@@ -102,7 +102,7 @@
 (require 'org)
 (unless (require 'w3m nil t)
   (require 'w3mexcerpt))
-
+(require 'cl-lib)
 (require 'xml)
 (require 'json)
 (require 'http-post-simple)
@@ -1152,7 +1152,7 @@ will not archive completed tasks"))
 
           ;; Reset new-tasks, a second round of new-tasks may be created
           ;; from new child tasks waiting on this parent
-          (loop
+          (cl-loop
            for new-task in new-tasks
            for elem in result
            do (let ((status (car elem))
@@ -1221,7 +1221,7 @@ will not archive completed tasks"))
       ;; Issue a single call for edit-tasks
       (when edit-tasks
         (let ((result (org-toodledo-server-edit-tasks edit-tasks)))
-          (loop
+          (cl-loop
            ;for edit-task in edit-tasks
            for elem in result
            do (let ((status (car elem))
@@ -1246,7 +1246,7 @@ will not archive completed tasks"))
       (when delete-tasks
         (let ((result (org-toodledo-server-delete-tasks delete-tasks))
               id fail title errnum errcode elem del-task)
-          (loop
+          (cl-loop
            for del-task in delete-tasks
            for elem in result
            do (progn
@@ -1267,7 +1267,7 @@ will not archive completed tasks"))
       ;; Now go back and find all completed tasks
       (when completed-tasks
         (org-toodledo-debug "Completed tasks to archive: %s" completed-tasks)
-        (loop
+        (cl-loop
          for completed-task in completed-tasks
          do (progn
               (org-toodledo-debug "Planning to archive completed task: %s"
