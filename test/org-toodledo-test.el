@@ -32,6 +32,7 @@ an alist of the task fields."
     (match-string-no-properties 2)))
 
 (ert-deftest org-toodledo-initialize-test ()
+  (setq org-toodledo-password "dummy")
   (setq expected '(("duetime" . "0")
                    ("duedate" . "0")
                    ("starttime" . "0")
@@ -50,5 +51,5 @@ an alist of the task fields."
                    ("priority" . "0")
                    ("note" . "")))
     (org-toodledo-test-setup-buffer "*test*")
-    (setq actual (org-toodledo-parse-test))
-    (should (equal "TODO" actual)))
+    (setq actual (org-toodledo-parse-current-task))
+    (should (equal expected actual)))
