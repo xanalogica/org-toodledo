@@ -131,6 +131,8 @@
 (declare-function org-toodledo-task-tag "org-toodledo.el")
 (declare-function org-toodledo-task-completed "org-toodledo.el")
 (declare-function org-toodledo-task-status "org-toodledo.el")
+(declare-function org-toodledo-task-id "org-toodledo.el")
+
 ;;
 ;; User customizable variables
 ;;
@@ -2388,7 +2390,7 @@ to headings based on the folder naming as follows:
                               (lambda (cell)
                                 (if (listp cell)
                                     (cons (symbol-name (car cell))
-                                          (caddr cell))
+                                          (cl-caddr cell))
                                   nil))
                               (cddr m)))))
 
@@ -2422,7 +2424,7 @@ a list of alists of fields returned from the server."
                 (if (listp m)
                     (if (eq (car m) 'error)
                         (cons 'error (cl-cdaadr m))
-                      (caddr m))))
+                      (cl-caddr m))))
               (cl-cddar (org-toodledo-call-method "tasks/delete" params))))))
    taskids 50))
 
@@ -2716,7 +2718,7 @@ See `org-toodledo-sim'"
 (defun org-toodledo-error-num-to-str (num)
   (let ((match (assoc num org-toodledo-error-code-map)))
     (if match
-        (caddr match)
+        (cl-caddr match)
       "Unknown code")))
 
 (defun org-toodledo-do-parent ()
