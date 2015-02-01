@@ -1,6 +1,4 @@
 (require 'ert)
-;; (require 'undercover)
-;; (undercover "org-toodledo.el")
 (require 'org-toodledo)
 
 (defun org-toodledo-test-setup-buffer (name)
@@ -25,24 +23,32 @@
     :LAST_REPEAT: [2015-01-14 水 16:52]
     :END:")))
 
+(defun org-toodledo-parse-test ()
+  "Parse the org task at point and extract all toodledo related fields.  Return
+an alist of the task fields."
+  (save-excursion
+    (org-back-to-heading t)
+    (looking-at org-complex-heading-regexp)
+    (match-string-no-properties 2)))
+
 (ert-deftest org-toodledo-initialize-test ()
-  (setq expected '(("repeatfrom" . "0")
-                   ("repeat" . "Every 1 month")
-                   ("duedate" . "1423267200")
-                   ("duetime" . "0")
+  (setq expected '(("duetime" . "0")
+                   ("duedate" . "0")
                    ("starttime" . "0")
                    ("startdate" . "0")
+                   ("repeatfrom" . "0")
+                   ("repeat" . "")
                    ("goal" . "0")
                    ("folder" . "0")
-                   ("id" . "393655887")
-                   ("title" . "Test1")
+                   ("id" . "393773069")
+                   ("title" . "Test2")
                    ("length" . "0")
                    ("context" . "1200627")
                    ("tag" . "")
                    ("completed" . "0")
-                   ("status" . "2")
+                   ("status" . "5")
                    ("priority" . "0")
                    ("note" . "")))
     (org-toodledo-test-setup-buffer "*test*")
-    (setq actual (org-toodledo-parse-current-task))
-    (should (equal expected actual)))
+    (setq actual (org-toodledo-parse-test))
+    (should (equal "TODO" actual)))

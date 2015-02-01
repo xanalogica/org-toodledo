@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/myuhe/org-toodledo.svg?branch=master)](https://travis-ci.org/myuhe/org-toodledo) [![Coverage Status](https://coveralls.io/repos/myuhe/org-toodledo/badge.svg)](https://coveralls.io/r/myuhe/org-toodledo)
+[![Build Status](https://travis-ci.org/myuhe/org-toodledo.svg?branch=master)](https://travis-ci.org/myuhe/org-toodledo)
 
 Overview 
 --------
