@@ -1,8 +1,7 @@
 (require 'ert)
-(require 'org-toodledo)
 (require 'undercover)
 (undercover "org-toodledo.el")
-
+(require 'org-toodledo)
 
 (defun org-toodledo-test-setup-buffer (name)
   (let ((buf (get-buffer-create name)))
