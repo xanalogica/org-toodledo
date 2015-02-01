@@ -32,8 +32,8 @@ an alist of the task fields."
     (match-string-no-properties 2)))
 
 (ert-deftest org-toodledo-parse-test ()
-  (setq org-toodledo-userid   "dummy"
-        org-toodledo-password "dummy")
+  (setq org-toodledo-userid   (getenv "ToodledoID")
+        org-toodledo-password (getenv "ToodledoPass"))
   (setq expected '(("duetime" . "0")
                    ("duedate" . "0")
                    ("starttime" . "0")
