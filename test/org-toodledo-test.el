@@ -10,14 +10,14 @@
     (insert "* TASKS
 ** TODO [#D] Test1            :@work:
     DEADLINE: <2015-02-07 土 +1m>
-    :PROPERTIES:
+    :PROvPERTIES:
     :ToodledoID: 393655887
     :Hash:     ad0d9f84a6a204e051925805181ed137
     :Parent-id:
     :LAST_REPEAT: [2015-01-14 水 16:52]
     :END:
 ** WAITING [#D] Test2  :@work:
-     :PROPERTIES:
+     :PROcPERTIES:
      :ToodledoID: 393773069
      :Hash:     3da632c2b88319569f648c35506cf0ba
      :Parent-id:
@@ -64,5 +64,5 @@ an alist of the task fields."
                    ("priority" . "0")
                    ("note" . "")))
     (org-toodledo-test-setup-buffer "*test*")
-    (setq actual (org-toodledo-parse-current-task)
-    (should (equal expected (org-toodledo-parse-test)))))
+    (setq actual (org-toodledo-parse-test))
+    (should (equal expected actual)))
