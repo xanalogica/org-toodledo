@@ -54,4 +54,4 @@
                      ("note" . "- State \"WAITING\"    from \"TODO\"       [2015-01-23 金 15:50]")))
     (org-toodledo-test-setup-buffer "*test*")
     (setq actual (org-toodledo-parse-current-task))
-    (should (equal expected actual)))
+    (should (equal expected org-complex-heading-regexp)))
