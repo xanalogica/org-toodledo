@@ -151,8 +151,7 @@ CHARSET defaults to 'utf-8"
 		  data   (buffer-substring (1+ (point)) (point-max)))
           ;; unexpected situation, return the whole buffer
           (setq data (buffer-string))))
-      (values data header status))))
-
+      (cl-values data header status))))
 
 (defun http-post-multipart-boundary ()
   "=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=")
