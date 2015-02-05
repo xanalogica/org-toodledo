@@ -6,6 +6,7 @@
 ;; Created: 7 Sep 2011
 ;; Version: 2.16
 ;; Keywords: outlines, data
+;; Package-Requires: ((request-deferred "0.2.0") (emacs "24") (cl-lib "0.5"))
 
 ;; GNU General Public License v2 (GNU GPL v2),
 ;; inspired by work from Sacha Chua
@@ -104,9 +105,9 @@
   (require 'w3mexcerpt))
 (require 'xml)
 (require 'json)
-(require 'http-post-simple)
 (require 'url)
 (require 'url-http)
+(require 'request)
 (require 'org-agenda)
 (require 'cl-lib)
 
@@ -2430,7 +2431,7 @@ a list of alists of fields returned from the server."
 
 (defun org-toodledo-call-method (method-name &optional params)
   "Call METHOD-NAME with PARAMS and return the parsed XML."
-  (let (send-params (retries 2) done parsed-response)
+  (lexical-let (send-params req done parsed-response)
     ;; Convert "unix" to 'unix
     (setq send-params (mapcar (lambda (e)
                                 (let ((key (intern (car e)))
@@ -2442,23 +2443,24 @@ a list of alists of fields returned from the server."
     (alist-put send-params 'key (org-toodledo-key))
     (alist-put send-params 'f "xml")
 
-    (while (and (not done) (> retries 0))
-      (setq retries (1- retries))
+    (while (not done)
       (let* ((url (concat  (if org-toodledo-use-https "https" "http")
-                           "://api.toodledo.com/2/" method-name ".php"))
-             (response
-              (if org-toodledo-sim-mode
-                  (org-toodledo-sim-http-post method-name params)
-                (http-post-simple url send-params))))
-        (with-temp-buffer
-          (insert (car response))
-          (setq parsed-response (xml-parse-region (point-min) (point-max))))
-
+                                   "://api.toodledo.com/2/" method-name ".php")))
+        
+        (when (eq req nil)
+          (request url
+                   :params send-params
+                   ;; Parse XML in response body:
+                   :parser (lambda () (xml-parse-region (point-min) (point-max)))
+                   :success (function*
+                             (lambda (&key data &allow-other-keys)
+                               (setq parsed-response data)))))
+        (setq req t)
         (when (>= org-toodledo-log-level 1)
           (org-toodledo-debug "org-toodledo-call-method: '%s'" url)
           (org-toodledo-debug2
            "\n--- params:\n%S\n--- response:\n%S\n--- parsed response:\n%S\n---"
-           send-params response parsed-response)
+           send-params parsed-response)
           (setq org-toodledo-last-parsed-response parsed-response))
 
         (if (eq 'error (caar parsed-response))
@@ -2479,14 +2481,14 @@ a list of alists of fields returned from the server."
                 (org-toodledo-die
                  (format "Call to %s failed: %s, not retrying"
                          method-name (cl-caddar parsed-response))))))
-
-          (setq done t))))
+          (if (eq parsed-response nil)
+              (sit-for 0.01)
+            (setq done t)))))
 
     (if (and parsed-response done)
         parsed-response
       (org-toodledo-die (format "Call to %s failed: %s" method-name
                                 (cl-caddar parsed-response))))))
-
 
 (defun org-toodledo-convert-xml-to-lookup-list (xml-resp tag)
   "Parse XML response used for folders, goals, and contexts"
