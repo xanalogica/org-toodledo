@@ -1,8 +1,8 @@
 language: emacs-lisp
 addons:
   hosts:
-    - travis.dev
-    - joshkalderimis.com
+    - myuhe
+    - myuhe
 notifications:
   email: false
 env:
