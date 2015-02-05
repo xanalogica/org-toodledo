@@ -1311,9 +1311,7 @@ will not archive completed tasks"))
                        (cdr (assoc "lastedit_task" account-info)))
         (org-entry-put (point) "ToodledoLastDelete"
                        (cdr (assoc "lastdelete_task" account-info))))
-
-      (let ((org-tags-column (- 5 (window-width)))) (org-align-all-tags))
-
+       (org-align-all-tags)
       (when columns-pos
         (goto-char columns-pos)
         (org-columns))
