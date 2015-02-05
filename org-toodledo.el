@@ -41,15 +41,8 @@
 
 ;;; Installation:
 ;;
-;; 1. Required emacs packages:
-;;       * `w3m' or `w3mexcerpt' -- see Notes below
-;;       * `http-post-simple' -- http://www.emacswiki.org/emacs/http-post-simple.el
-;;
-;;    Note, if you see messages like "(lambda (field) ...) quoted with ' rather
-;;    than with #'" related to http-post-simple, see this
-;;    [StackOverflow Question](http://stackoverflow.com/questions/17285048).
-;;    It seems there are 5 places in http-post-simple.el that use
-;;    ='(lambda...)= where just =(lambda...)= would be fine.
+;; 1. Required emacs package:
+;;       * `request'
 ;;
 ;; 2. Put this file in your load path, byte compile the file for best
 ;;    performance, see `byte-compile-file'.
@@ -71,42 +64,12 @@
 ;;           (lambda ()
 ;;             (local-unset-key "\C-o")
 ;;             (local-set-key "\C-od" 'org-toodledo-agenda-mark-task-deleted)）
-;;
-;; 4. Install 2 patches for url-http.el (these are written for 23.3, but may
-;;    work for other versions, if not patch manually, as the diffs are
-;;    not that complex)
-;;
-;;    url-http.el.emacs-23.3.patch
-;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=9592,
-;;         involving attempted connection reuse
-;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=8931,
-;;         problem when sending a request with no data
-;;
-;;    url-http.el.emacs-23.3.patch2
-;;       - addresses http://debbugs.gnu.org/cgi/bugreport.cgi?bug=10768
-;;         fixes a problem with responses that are barely longer than 1
-;;         TCP data packet (about 1200 bytes)
-;;
-;;    To install the patches:
-;;       $ cd $emacs_install_dir/lisp/url
-;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch
-;;       $ patch < $path_to_patch/url-http.el.emacs-23.3.patch2
-;;
-;;    Then in emacs:
-;;       M-x byte-compile-file $emacs_install_dir/lisp/url/url-http.el
-;;
-;;    This patch seems to apply cleanly to 23.2 as well, but is not tested there.
-;;
 
 ;;; Code:
 
 (require 'org)
-(unless (require 'w3m nil t)
-  (require 'w3mexcerpt))
 (require 'xml)
 (require 'json)
-(require 'url)
-(require 'url-http)
 (require 'request)
 (require 'org-agenda)
 (require 'cl-lib)
