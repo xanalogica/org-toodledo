@@ -407,8 +407,7 @@ tasks (fields minus org-toodled-fields-dont-send)" )
     ("7" . "Postponed")
     ("8" . "Someday")
     ("9" . "Canceled")
-    ("10" . "Reference")
-    )
+    ("10" . "Reference"))
   "Map of Toodledo API 'status' field values to names for easy
 reference.  The possible values represent the keys for use in
 org-toodledo-status-to-org-map" )
@@ -1114,7 +1113,6 @@ will not archive completed tasks"))
 
                   (org-toodledo-debug "...edit task, child of new parent %S"
                                       parent-ref))
-
                  (t
                   (alist-put tasks-by-title-alist
                              (org-toodledo-task-title task) edit-task)
@@ -1156,8 +1154,7 @@ will not archive completed tasks"))
                           (setq errors (1+ errors))
                           (org-toodledo-error
                            "Failed to find local copy of new task, server ref '%s' id '%s', task: '%s'"
-                           ref id (org-toodledo-task-title new-task))
-                          )
+                           ref id (org-toodledo-task-title new-task)))
                       (org-entry-put (point) "ToodledoID" id)
                       (org-entry-delete (point) "ToodledoSyncError")
                       (org-toodledo-compute-hash t)
@@ -1354,7 +1351,6 @@ an alist of the task fields."
                  ((string-match (org-re "@\\([[:alnum:]_]+\\)") tag)
                   (setq context
                         (org-toodledo-context-to-id (match-string 1 tag))))
-
                  (t
                   (setq tags (append tags (list tag))))))))
 
@@ -1761,7 +1757,7 @@ Pro account subscription"
       (when note
         (with-temp-buffer
           (insert note)
-          (if (not (re-search-forward "\n\\'" nil t))
+          (when (not (re-search-forward "\n\\'" nil t))
               (insert "\n"))
           (goto-char (point-min))
           (cond
@@ -1800,18 +1796,18 @@ Pro account subscription"
 
       ;; create a properties drawer for all details
       (goto-char pos)
-      (if taskid (org-entry-put (point) "ToodledoID" taskid))
+      (when taskid (org-entry-put (point) "ToodledoID" taskid))
 
       (if (and folder-id (not (eq org-toodledo-folder-support-mode 'heading)))
           (org-entry-put (point) "ToodledoFolder"
                          (org-toodledo-id-to-folder folder-id))
         (org-entry-delete (point) "ToodledoFolder"))
 
-      (if goal
+      (when goal
           (org-entry-put (point) "ToodledoGoal"
                          (org-toodledo-id-to-goal goal)))
 
-      (if length
+      (when length
           (org-entry-put (point) "Effort" (org-toodledo-task-length task)))
 
       (if compute-hash
@@ -1882,7 +1878,6 @@ and from the local org file on the next sync"
                    (match-beginning 0)
                  (org-end-of-subtree t t)
                  (point))))))
-
         (when columns-pos
           (goto-char columns-pos)
           (org-columns)))
@@ -2001,10 +1996,8 @@ and from the local org file on the next sync"
     (if (string-match "^[0-9]+" status)
         (setq status (cdr (assoc status org-toodledo-api-status-map))))
     (cdr (assoc status org-toodledo-status-to-org-map)))
-
    ((string= status "DONE")
     "0")
-
    (t
     (car (rassoc
           (car (rassoc status org-toodledo-status-to-org-map))
