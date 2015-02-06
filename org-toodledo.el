@@ -264,7 +264,7 @@ Reload if FORCE is non-nil.")
                       (cl-caddar (xml-get-children node 'name))
                       (cl-caddar (xml-get-children node 'id))))
                    (xml-get-children
-                    (car (org-toodledo-call-method ,get-method))
+                    (org-toodledo-call-method ,get-method)
                     (quote ,(intern name)))))
           ,(intern cache-var)))
 
@@ -277,7 +277,7 @@ Reload if FORCE is non-nil.")
                      (org-toodledo-call-method
                       ,add-method
                       (list (cons "name" item)))))
-                (if (eq (caar result) 'error)
+                (if (eq (car result) 'error)
                     (org-toodledo-die
                      (format "Failed to add new %s: %s" ,name item))
                   (setq ,(intern cache-var)
@@ -285,7 +285,7 @@ Reload if FORCE is non-nil.")
                          (cons item
                                (cl-caddar (xml-get-children
                                         (car (xml-get-children
-                                              (car result)
+                                              result
                                               (quote ,(intern name))))
                                         'id)))
                               ,(intern cache-var))
@@ -700,7 +700,7 @@ expires, a new token is automatically retrieved. "
   "Return account information from server."
   (setq org-toodledo-use-https nil)
   (let ((info (org-toodledo-convert-xml-result-to-alist
-               (car (org-toodledo-call-method "account/get")))))
+               (org-toodledo-call-method "account/get"))))
     (setq org-toodledo-pro (string= "1" (cdr (assoc "pro" info))))
     (setq org-toodledo-pro-cached t)
 
@@ -731,7 +731,7 @@ Return a list of task alists."
   (mapcar
    'org-toodledo-convert-xml-result-to-alist
    (xml-get-children
-    (car (org-toodledo-call-method "tasks/get" params))
+    (org-toodledo-call-method "tasks/get" params)
     'task)))
 
 (defun org-toodledo-get-deleted (&optional params)
@@ -740,7 +740,7 @@ Return a list of task alists."
   (mapcar
    'org-toodledo-convert-xml-result-to-alist
    (xml-get-children
-    (car (org-toodledo-call-method "tasks/deleted" params))
+    (org-toodledo-call-method "tasks/deleted" params)
     'task)))
 
 ;;
@@ -2353,7 +2353,7 @@ to headings based on the folder naming as follows:
                  (cons 'error  (cl-cdaadr m))))
 
              nil))
-         (cl-cddar xmlresult))))
+         (cddr xmlresult))))
 
 (defun org-toodledo-server-addedit-tasks (method tasks)
   "Add/edit TASKS, a list of alists of task fields to set.  This returns
@@ -2380,7 +2380,7 @@ a list of alists of fields returned from the server."
                     (if (eq (car m) 'error)
                         (cons 'error (cl-cdaadr m))
                       (cl-caddr m))))
-              (cl-cddar (org-toodledo-call-method "tasks/delete" params))))))
+              (cddr (org-toodledo-call-method "tasks/delete" params))))))
    taskids 50))
 
 (defun org-toodledo-call-method (method-name &optional params)
@@ -2405,7 +2405,7 @@ a list of alists of fields returned from the server."
           (request url
                    :params send-params
                    ;; Parse XML in response body:
-                   :parser (lambda () (xml-parse-region (point-min) (point-max)))
+                   :parser (lambda () (libxml-parse-xml-region (point-min) (point-max)))
                    :success (function*
                              (lambda (&key data &allow-other-keys)
                                (setq parsed-response data)))))
@@ -2417,8 +2417,8 @@ a list of alists of fields returned from the server."
            send-params parsed-response)
           (setq org-toodledo-last-parsed-response parsed-response))
 
-        (if (eq 'error (caar parsed-response))
-            (let* ((num (cdr (cl-caadar parsed-response)))
+        (if (eq 'error (car parsed-response))
+            (let* ((num (cdr (cl-caadr parsed-response)))
                    (code (org-toodledo-error-num-to-code num)))
               (if (<= retries 0)
                   (org-toodledo-die
@@ -2434,7 +2434,7 @@ a list of alists of fields returned from the server."
                (t
                 (org-toodledo-die
                  (format "Call to %s failed: %s, not retrying"
-                         method-name (cl-caddar parsed-response))))))
+                         method-name (cl-caddr parsed-response))))))
           (if (eq parsed-response nil)
               (sit-for 0.01)
             (setq done t)))))
@@ -2442,7 +2442,7 @@ a list of alists of fields returned from the server."
     (if (and parsed-response done)
         parsed-response
       (org-toodledo-die (format "Call to %s failed: %s" method-name
-                                (cl-caddar parsed-response))))))
+                                (cl-caddr parsed-response))))))
 
 (defun org-toodledo-convert-xml-to-lookup-list (xml-resp tag)
   "Parse XML response used for folders, goals, and contexts"
@@ -2451,7 +2451,7 @@ a list of alists of fields returned from the server."
      (cons
       (cl-caddar (xml-get-children node 'name))
       (cl-caddar (xml-get-children node 'id))))
-   (xml-get-children (car xml-resp) tag)))
+   (xml-get-children xml-resp tag)))
 
 (defun org-toodledo-get-folders (&optional force)
   "Store an alist of (folder . id) in `org-toodledo-folders'.
@@ -2469,7 +2469,7 @@ Reload if FORCE is non-nil."
         ;; Create it if it does not yet exist
         (let ((result (org-toodledo-call-method "folders/add"
                                                 (list (cons "name" name)))))
-          (if (eq (caar result) 'error)
+          (if (eq (car result) 'error)
               (org-toodledo-die (format "Failed to add new folder: %s" name))
             (setq org-toodledo-folders nil)
             (setq lookups (org-toodledo-get-folders)))))
@@ -2496,8 +2496,7 @@ Reload if FORCE is non-nil."
 
 (defun org-toodledo-refile-current-task (marker)
   (let ((org-refile-targets '((nil . (:level . 3)))))
-    (org-refile nil nil (list "Deleted Tasks" (buffer-file-name) nil marker))
-    )
+    (org-refile nil nil (list "Deleted Tasks" (buffer-file-name) nil marker)))
   ;; necessary if the user happened to kill two tasks without moving
   (kill-new ""))
 
@@ -2516,9 +2515,7 @@ Reload if FORCE is non-nil."
         (setq level (1+ (elt (org-heading-components) 0)))
         (org-end-of-subtree t t)
         (insert (make-string level ?*) " " heading "\n")
-        (setq marker (org-find-exact-headline-in-buffer heading))
-        )
-      )
+        (setq marker (org-find-exact-headline-in-buffer heading))))
     (if marker
         (org-toodledo-refile-current-task marker)
       (org-toodledo-die (format "No such heading %s" heading)))))
