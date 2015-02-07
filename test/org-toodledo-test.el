@@ -1,7 +1,10 @@
 (require 'ert)
 (require 'undercover)
-
 (require 'org-toodledo)
+
+(when (string= "myuhe" (getenv "TOODLEDO_ENV"))
+    (setq org-toodledo-userid   (getenv "ToodledoID")
+          org-toodledo-password (getenv "ToodledoPass")))
 
 (defun org-toodledo-test-setup-buffer (name)
   (let ((buf (get-buffer-create name)))
@@ -27,15 +30,11 @@
     This is note.")))
 
 (ert-deftest org-toodledo-entry-note-test ()
-    (setq org-toodledo-userid   (getenv "ToodledoID")
-          org-toodledo-password (getenv "ToodledoPass"))
   (setq expected "This is note.")
     (org-toodledo-test-setup-buffer "*test*")
     (setq actual (org-toodledo-entry-note)))
 
 (ert-deftest org-toodledo-parse-test ()
-    (setq org-toodledo-userid   (getenv "ToodledoID")
-          org-toodledo-password (getenv "ToodledoPass"))
   (setq expected '(("repeatfrom" . "0")
                    ("repeat" . "Every 1 month")
                    ("duedate" . "1423267200")
