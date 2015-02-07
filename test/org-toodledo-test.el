@@ -27,6 +27,9 @@
     This is note.")))
 
 (ert-deftest org-toodledo-entry-note-test ()
+  (when (string= (system-name) "myuhe")
+    (setq org-toodledo-userid   (getenv "ToodledoID")
+          org-toodledo-password (getenv "ToodledoPass")))
   (setq expected "This is note.")
     (org-toodledo-test-setup-buffer "*test*")
     (setq actual (org-toodledo-entry-note)))
