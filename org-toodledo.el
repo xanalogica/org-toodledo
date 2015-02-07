@@ -2385,7 +2385,7 @@ a list of alists of fields returned from the server."
 
 (defun org-toodledo-call-method (method-name &optional params)
   "Call METHOD-NAME with PARAMS and return the parsed XML."
-  (lexical-let (send-params req done parsed-response)
+  (let (send-params req done parsed-response)
     ;; Convert "unix" to 'unix
     (setq send-params (mapcar (lambda (e)
                                 (let ((key (intern (car e)))
@@ -2420,11 +2420,9 @@ a list of alists of fields returned from the server."
         (if (eq 'error (car parsed-response))
             (let* ((num (cdr (cl-caadr parsed-response)))
                    (code (org-toodledo-error-num-to-code num)))
-              (if (<= retries 0)
                   (org-toodledo-die
                    "Call to %s failed, exceeded max num of retries, giving up"
-                   method-name))
-
+                   method-name)
               (cond
                ((eq code 'invalid-key)
                 (org-toodledo-info
