@@ -2407,7 +2407,7 @@ a list of alists of fields returned from the server."
                    ;; Parse XML in response body:
                    :parser (lambda () (libxml-parse-xml-region (point-min) (point-max)))
                    :success (function*
-                             (lambda (&key data &allow-other-keys)
+                             (lambda (&key data)
                                (setq parsed-response data)))))
         (setq req t)
         (when (>= org-toodledo-log-level 1)
