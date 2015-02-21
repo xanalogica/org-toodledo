@@ -824,6 +824,7 @@ Return a list of task alists."
              "org-toodledo-sync-new-completed-tasks set to true, \
 will not archive completed tasks"))))
     (deferred:$
+      (deferred:wait 1000)
       (deferred:next
         (lambda ()
           (unless (org-toodledo-token-valid)
@@ -2248,7 +2249,6 @@ return position, otherwise a marker."
       (y-or-n-p "Sync with Toodledo? "))
      ((string= org-toodledo-sync-on-save "yes") t)
      (t nil)))
-    (sit-for 2)
     (org-toodledo-sync)))
 
 (add-hook 'before-save-hook 'org-toodledo-save-hook)
