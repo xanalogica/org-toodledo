@@ -74,29 +74,6 @@
 (require 'org-agenda)
 (require 'cl-lib)
 
-(declare-function org-columns-quit "org-colview.el")
-(declare-function org-toodledo-test "org-toodledo-test.el")
-(declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
-(declare-function org-toodledo-sim-http-post "org-toodledo-sim.el")
-(declare-function org-toodledo-task-title "org-toodledo.el")
-(declare-function org-toodledo-task-parent "org-toodledo.el")
-(declare-function org-toodledo-task-repeat "org-toodledo.el")
-(declare-function org-toodledo-task-repeatfrom "org-toodledo.el")
-(declare-function org-toodledo-task-priority "org-toodledo.el")
-(declare-function org-toodledo-task-context "org-toodledo.el")
-(declare-function org-toodledo-task-note "org-toodledo.el")
-(declare-function org-toodledo-task-duedate "org-toodledo.el")
-(declare-function org-toodledo-task-duetime "org-toodledo.el")
-(declare-function org-toodledo-task-startdate "org-toodledo.el")
-(declare-function org-toodledo-task-starttime "org-toodledo.el")
-(declare-function org-toodledo-task-folder "org-toodledo.el")
-(declare-function org-toodledo-task-goal "org-toodledo.el")
-(declare-function org-toodledo-task-length "org-toodledo.el")
-(declare-function org-toodledo-task-tag "org-toodledo.el")
-(declare-function org-toodledo-task-completed "org-toodledo.el")
-(declare-function org-toodledo-task-status "org-toodledo.el")
-(declare-function org-toodledo-task-id "org-toodledo.el")
-
 ;;
 ;; User customizable variables
 ;;
@@ -231,9 +208,7 @@ Where:
 (defvar org-toodledo-folders nil "Map of folder names to ids")
 (defvar org-toodledo-goals nil "Map of goal names to ids")
 (defvar org-toodledo-contexts nil "Map of context names to ids")
-
 (defvar org-toodledo-archive-deleted-tasks nil)
-
 (defvar org-toodledo-sim-mode nil "Set to t to simulate http posts, used for testing")
 (defvar org-toodledo-last-parsed-response nil "Used to store the last parsed xml response when debug enabled")
 (defvar org-toodledo-errors nil "List of errors for the last operation")
@@ -849,15 +824,19 @@ Return a list of task alists."
              "org-toodledo-sync-new-completed-tasks set to true, \
 will not archive completed tasks"))))
     (deferred:$
-        (request-deferred (concat (if org-toodledo-inhibit-https "http" "https")
-                       "://api.toodledo.com/2/account/token.php?f=xml")
-               :params  `((userid . ,org-toodledo-userid)
-                          (appid  . ,org-toodledo-appid)
-                          (sig    . ,(md5 (concat org-toodledo-userid org-toodledo-apptoken))))
-               ;; Parse XML in response body:
-               :parser (lambda () (libxml-parse-xml-region (point-min) (point-max))))
-        (deferred:nextc it
-          (lambda (res)
+      (deferred:next
+        (lambda ()
+          (unless (org-toodledo-token-valid)
+            (request-deferred (concat (if org-toodledo-inhibit-https "http" "https")
+                                      "://api.toodledo.com/2/account/token.php?f=xml")
+                              :params  `((userid . ,org-toodledo-userid)
+                                         (appid  . ,org-toodledo-appid)
+                                         (sig    . ,(md5 (concat org-toodledo-userid org-toodledo-apptoken))))
+                              ;; Parse XML in response body:
+                              :parser (lambda () (libxml-parse-xml-region (point-min) (point-max)))))))
+      (deferred:nextc it
+        (lambda (res)
+          (when res
             (if (equal (car (request-response-data res)) 'error)
                 (progn
                   (setq org-toodledo-token nil
@@ -868,7 +847,7 @@ will not archive completed tasks"))))
                     (elt (request-response-data res) 2))
               ;; Set the expiry time to 4 hours from now
               (setq org-toodledo-token-expiry
-                    (seconds-to-time (+ (float-time) (* 60 60 4)))))))
+                    (seconds-to-time (+ (float-time) (* 60 60 4))))))))
       (deferred:nextc it
         (lambda ()
           (deferred:parallel
@@ -910,6 +889,7 @@ will not archive completed tasks"))))
                       (org-toodledo-call-async-method "tasks/get" params)
                       (deferred:nextc it
                         (lambda (xml)
+                          (org-toodledo-info "Task get process start")
                           (with-current-buffer buf
                             (save-excursion
                               (setq server-edit-tasks
@@ -1158,7 +1138,6 @@ will not archive completed tasks"))))
                       (org-toodledo-debug "...no change")
                       (alist-put tasks-by-title-alist
                                  (org-toodledo-task-title task) task))))))))))
-
       (deferred:nextc it
         (lambda ()
           (with-current-buffer buf
@@ -1176,6 +1155,7 @@ will not archive completed tasks"))))
                             (data (cdr elem)))
                         (with-current-buffer buf
                           (save-excursion
+                            (org-toodledo-info "New Task process process started")
                             (cond
                              ((eq status 'error)
                               (setq errors (1+ errors))
@@ -1187,6 +1167,9 @@ will not archive completed tasks"))))
                               (let ((ref (cdr (assoc "ref" data)))
                                     (id (cdr (assoc "id" data)))
                                     (parent-id (cdr (assoc "parent" data))))
+                                (with-current-buffer buf
+                                  (save-excursion
+                                (org-toodledo-info "new task start")
                                 (if (not (org-toodledo-goto-todo-entry ref t))
                                     (progn
                                       (setq errors (1+ errors))
@@ -1222,7 +1205,7 @@ will not archive completed tasks"))))
                                       (alist-put child-task "parent" id)
                                       (setq edit-tasks
                                             (append edit-tasks (list child-task)))
-                                      (alist-delete new-parent-edit-child-alist ref)))))))))))
+                                      (alist-delete new-parent-edit-child-alist ref)))))))))))))
 
                   (setq new-tasks next-new-tasks)
 
@@ -1235,8 +1218,8 @@ will not archive completed tasks"))))
                     (org-toodledo-die
                      (format "Orphaned edit child tasks never got a parent ID: %S"
                              new-parent-edit-child-alist)))))))))
-      (deferred:nextc it
-        (lambda ()
+            (deferred:nextc it
+              (lambda ()
           (deferred:parallel
             (lambda ()
               (when edit-tasks
@@ -1385,11 +1368,10 @@ an alist of the task fields."
              (context "0")
              tags)
 
-        (if (and (string= status "DONE")
+        (when (and (string= status "DONE")
                  (null closed))
-            (progn
               (org-add-planning-info 'closed (org-current-effective-time))
-              (setq closed (org-entry-get nil "CLOSED"))))
+              (setq closed (org-entry-get nil "CLOSED")))
 
         ;; tags-context is a list of tags from toodledo
         ;; treate '@<label>' as context, otherwise a tag
@@ -1450,12 +1432,9 @@ an alist of the task fields."
         ;; if both are present
         (mapc
          (lambda (elem)
-           (let ((datestr (nth 0 elem))
-                 (timestr (nth 1 elem))
-                 (date (nth 2 elem)))
-             (alist-put info datestr "0")
-             (alist-put info timestr "0")
-             (when date
+             (alist-put info (nth 0 elem) "0")
+             (alist-put info (nth 1 elem) "0")
+             (when (nth 2 elem)
                ;; Passing t as 2nd arg to
                ;; org-toodledo-time-string-to-seconds adjusts for
                ;; timezone, since duedate/duetime/startdate/starttime
@@ -1468,8 +1447,8 @@ an alist of the task fields."
                ;; org-toodledo-time-string-to-seconds with t passed as
                ;; 2nd param will give the time as GMT
                (alist-put
-                info datestr
-                (format "%.0f" (org-toodledo-time-string-to-seconds date t)))
+                info (nth 0 elem)
+                (format "%.0f" (org-toodledo-time-string-to-seconds (nth 2 elem) t)))
 
                ;; Check for a time component, and if so set the
                ;; duetime as well Note that org-parse-time-string
@@ -1479,17 +1458,16 @@ an alist of the task fields."
                ;; number.  Important to distinguish between 0 and nil,
                ;; as the user may have a deadline of "<2012-01-30 Mon
                ;; 00:00>" which will yield 0 and 0 for hour/minutes.
-               (when (cadr (org-parse-time-string date t))
+               (when (cadr (org-parse-time-string (nth 2 elem) t))
                  (alist-put
-                  info timestr
-                  (format "%.0f" (org-toodledo-time-string-to-seconds date t))))
+                  info (nth 1 elem)
+                  (format "%.0f" (org-toodledo-time-string-to-seconds (nth 2 elem) t))))
 
                ;; Add on the repeat
-               (let ((repeat (org-toodledo-org-to-repeat date)))
-                 (when repeat
-                   (alist-put info "repeat" (car repeat))
-                   (alist-put info "repeatfrom" (cdr repeat))
-                   )))))
+                 (when (org-toodledo-org-to-repeat (nth 2 elem))
+                   (alist-put info "repeat" (car (org-toodledo-org-to-repeat (nth 2 elem))))
+                   (alist-put info "repeatfrom" (cdr (org-toodledo-org-to-repeat (nth 2 elem))))
+                   )))
          `(("startdate" "starttime" ,scheduled)
            ("duedate" "duetime" ,deadline)))
 
@@ -1553,7 +1531,7 @@ Ask to pick one, the other, or edit.  Return value is the parsed task."
     task))
 
 (defun org-toodledo-up-to-base-parent (&optional with-prop)
-  (let ((parent-pos nil))
+  (let (parent-pos)
     (while (org-up-heading-safe)
       (if (or (not with-prop)
               (org-entry-get nil with-prop))
@@ -2270,6 +2248,7 @@ return position, otherwise a marker."
       (y-or-n-p "Sync with Toodledo? "))
      ((string= org-toodledo-sync-on-save "yes") t)
      (t nil)))
+    (sit-for 2)
     (org-toodledo-sync)))
 
 (add-hook 'before-save-hook 'org-toodledo-save-hook)
