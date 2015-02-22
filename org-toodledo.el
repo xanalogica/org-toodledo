@@ -818,6 +818,8 @@ Return a list of task alists."
       (save-excursion
         (when columns-pos
           (org-columns-quit))
+        (org-toodledo-check-version)
+        (org-toodledo-get-folders t)
         (if (and org-toodledo-sync-new-completed-tasks
                  org-toodledo-archive-completed-tasks)
             (org-toodledo-error
