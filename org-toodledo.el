@@ -41,7 +41,7 @@
 
 ;;; Installation:
 ;;
-;; 1. Required emacs package:
+;; 1. Required Emacs package:
 ;;       * `request'
 ;;
 ;; 2. Put this file in your load path, byte compile the file for best
@@ -53,7 +53,7 @@
 ;;    (require 'org-toodledo)
 ;;    (setq org-toodledo-userid "<toodledo-userid>")      << *NOT* your email!
 ;;    (setq org-toodledo-password "<toodled-password>")
-;;
+;;    (setq org-toodledo-file "<org file name>")
 ;;    ;; Useful key bindings for org-mode
 ;;    (add-hook 'org-mode-hook
 ;;           (lambda ()
@@ -97,21 +97,22 @@ See http://www.toodledo.com/info/api_doc.php"
   :type 'string)
 
 (defcustom org-toodledo-file ""
-  "filename sync with Toodledo"
+  "Filename sync with Toodledo."
   :group 'org-toodledo
   :type 'file)
 
 (defcustom org-toodledo-sync-on-save "ask"
-  "Action on save of a orgfile with toodledo tasks in it:
-     no    - nothing
-     ask   - ask the user to sync
-     yes   - always sync"
+  "Action on save of a orgfile with toodledo tasks.
+no    - nothing
+ask   - ask the user to sync
+yes   - always sync"
   :group 'org-toodledo
   :type 'string)
 
 (defcustom org-toodledo-sync-import-new-tasks t
-  "If non-nil, import new tasks from the server, otherwise only edits
-to existing tasks from the server are processed."
+  "Non-nil means import new tasks from the server.
+otherwise only edits to existing tasks from the server are
+processed."
   :group 'org-toodledo
   :type 'boolean)
 
@@ -127,30 +128,31 @@ to existing tasks from the server are processed."
     ("Postponed" . "SOMEDAY")
     ("Canceled" . "CANCELED")
     ("Reference" . "REFERENCE"))
-  "Map of Toodledo API 'status' names to org-mode TODO states."
+  "Map of Toodledo API 'status' names to `org-mode' TODO states."
   :group 'org-toodledo
   :type '(alist :key-type string :value-type string))
 
 (defcustom org-toodledo-sync-new-completed-tasks nil
-  "When nil, new tasks downloaded from the server are not added if they
-are already marked completed.  Existing tasks in the buffer are always
-updated.  Set to t to sync completed tasks into the local buffer."
+  "Non-nil means sync completed tasks into the local buffer.
+When nil, new tasks downloaded from the server are not added if
+they are already marked completed.  Existing tasks in the buffer
+are always updated.  "
   :group 'org-toodledo
   :type 'boolean)
 
 (defcustom org-toodledo-inhibit-https nil
-  "Set to t to inhibit the use of HTTPS even if it's available"
+  "Non-nil means inhibit the use of HTTPS even if it's available."
   :group 'org-toodledo
   :type 'boolean)
 
 (defcustom org-toodledo-flatten-all-tasks nil
-  "Set to t to always flatten all tasks, ignoring any parent/child
- relationship"
+  "Non-nil always flatten all tasks.
+ignoring any parent/child relationship."
   :group 'org-toodledo
   :type 'boolean)
 
 (defcustom org-toodledo-indent-task-note t
-  "Set to t to indent the task note body according to the level of the task"
+  "Non-nil means indent the task note body according to the level of the task."
   :group 'org-toodledo
   :type 'boolean)
 
@@ -161,12 +163,12 @@ updated.  Set to t to sync completed tasks into the local buffer."
                  (const :tag "Treat folders as headings" heading)))
 
 (defcustom org-tqoodledo-archive-deleted-tasks nil
-  "Set to t to archive deleted tasks once they are synced to the server."
+  "Non-nil means archive deleted tasks once they are synced to the server."
   :group 'org-toodledo
   :type 'boolean)
 
 (defcustom org-toodledo-archive-completed-tasks nil
-  "Set to t to archive completed tasks once they are synced to the server."
+  "Non-nil means to archive completed tasks once they are synced to the server."
   :group 'org-toodledo
   :type 'boolean)
 
@@ -187,7 +189,7 @@ Where:
   :type 'hook)
 
 (defcustom org-toodledo-preserve-drawers nil
-  "Set to t to preserve drawer properties in entry text."
+  "Non-nil means preserve drawer properties in entry text."
   :group 'org-toodledo
   :type 'boolean)
 
@@ -223,10 +225,10 @@ Where:
 (defmacro org-toodledo-make-lookup-function (name)
   "Create a lookup function and caching functions for NAME.
 
-  variable:  org-toodledo-NAMEs
-  functions: org-toodledo-get-NAMEs
-             org-toodledo-NAME-to-id
-             org-toodledo-id-to-NAME"
+variable:  org-toodledo-NAMEs
+functions: org-toodledo-get-NAMEs
+           org-toodledo-NAME-to-id
+           org-toodledo-id-to-NAME"
   (let ((cache-var (concat "org-toodledo-" name "s"))
         (get-func (concat "org-toodledo-get-" name "s"))
         (add-method (concat name "s/add"))
