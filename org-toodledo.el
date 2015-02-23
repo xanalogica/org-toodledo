@@ -820,18 +820,13 @@ Return a list of task alists."
         (when columns-pos
           (org-columns-quit))
         (org-toodledo-check-version)
-        ;;(org-toodledo-get-folders t)
         (if (and org-toodledo-sync-new-completed-tasks
                  org-toodledo-archive-completed-tasks)
             (org-toodledo-error
              "org-toodledo-sync-new-completed-tasks set to true, \
 will not archive completed tasks"))))
     (deferred:$
-      (deferred:parallel
-        (lambda () 
-          (org-toodledo-call-async-method "account/get"))
-        (lambda () 
-          (org-toodledo-call-async-method "folders/get"))
+      (deferred:next
         (lambda ()
           (unless (org-toodledo-token-valid)
             (request-deferred (concat (if org-toodledo-inhibit-https "http" "https")
@@ -842,32 +837,43 @@ will not archive completed tasks"))))
                               ;; Parse XML in response body:
                               :parser (lambda () (libxml-parse-xml-region (point-min) (point-max)))))))
       (deferred:nextc it
+        (lambda (res)
+          (when res
+            (if (equal (car (request-response-data res)) 'error)
+                (progn
+                  (setq org-toodledo-token nil
+                        org-toodledo-key nil
+                        org-toodledo-token-expiry nil)
+                  (error "Could not log in to Toodledo: %s" (elt (request-response-data res) 2)))
+              (setq org-toodledo-token
+                    (elt (request-response-data res) 2))
+              ;; Set the expiry time to 4 hours from now
+              (setq org-toodledo-token-expiry
+                    (seconds-to-time (+ (float-time) (* 60 60 4))))))))
+      (deferred:nextc it
+        (lambda ()
+          (deferred:parallel
+            (lambda () 
+              (org-toodledo-call-async-method "account/get"))
+            (lambda () 
+              (org-toodledo-call-async-method "folders/get")))))
+      (deferred:nextc it
         (lambda (data)
           (setq deferred-obj data)
           (unless skip-import
             (with-current-buffer buf
               (save-excursion
-                (if (equal (car (request-response-data (caddr data))) 'error)
-                    (progn
-                      (setq org-toodledo-token nil
-                            org-toodledo-key nil
-                            org-toodledo-token-expiry nil)
-                      (error "Could not log in to Toodledo: %s" (elt (request-response-data (caddr data)) 2)))
-                  (setq org-toodledo-token
-                        (elt (request-response-data (caddr data)) 2))
-                  ;; Set the expiry time to 4 hours from now
-                  (setq org-toodledo-token-expiry
-                        (seconds-to-time (+ (float-time) (* 60 60 4)))))
-
-                (when  (null org-toodledo-folders)
+                (when (null org-toodledo-folders)
                   (setq org-toodledo-folders
                         (org-toodledo-convert-xml-to-lookup-list
                          (request-response-data (cadr data)) 'folder)))
-
                 (org-toodledo-goto-base-entry)
                 (lexical-let ((local-lastedit-task
                                (or (org-entry-get (point) "ToodledoLastEdit") "0"))
-                              (server-lastedit-task (cdr (assoc "lastedit_task" (org-toodledo-convert-xml-result-to-alist (request-response-data (car data))))))
+                              (server-lastedit-task
+                               (cdr (assoc "lastedit_task"
+                                           (org-toodledo-convert-xml-result-to-alist
+                                            (request-response-data (car data))))))
                               params)
                   (org-toodledo-debug "Checking for edited tasks (local %S, server %S"
                                       local-lastedit-task server-lastedit-task)
@@ -937,7 +943,9 @@ will not archive completed tasks"))))
                                       (mapc (lambda (task) (org-toodledo-delete-local-task
                                                             (org-toodledo-task-id task)))
                                             server-delete-tasks)))))))))))))))))
-
+      (deferred:nextc it
+        (lambda ()
+            (deferred:wait 500)))
       (deferred:nextc it
         (lambda ()
           (with-current-buffer buf
@@ -1143,6 +1151,9 @@ will not archive completed tasks"))))
                                  (org-toodledo-task-title task) task))))))))))
       (deferred:nextc it
         (lambda ()
+            (deferred:wait 500)))
+      (deferred:nextc it
+        (lambda ()
           (with-current-buffer buf
             (save-excursion
               (while new-tasks
@@ -1158,7 +1169,7 @@ will not archive completed tasks"))))
                             (data (cdr elem)))
                         (with-current-buffer buf
                           (save-excursion
-                            (org-toodledo-info "New Task process process started")
+                            (org-toodledo-info "New Task process started")
                             (cond
                              ((eq status 'error)
                               (setq errors (1+ errors))
@@ -1172,7 +1183,6 @@ will not archive completed tasks"))))
                                     (parent-id (cdr (assoc "parent" data))))
                                 (with-current-buffer buf
                                   (save-excursion
-                                    (org-toodledo-info "new task start")
                                     (if (not (org-toodledo-goto-todo-entry ref t))
                                         (progn
                                           (setq errors (1+ errors))
@@ -1221,6 +1231,9 @@ will not archive completed tasks"))))
                     (org-toodledo-die
                      (format "Orphaned edit child tasks never got a parent ID: %S"
                              new-parent-edit-child-alist)))))))))
+      (deferred:nextc it
+        (lambda ()
+          (deferred:wait 500)))
       (deferred:nextc it
         (lambda ()
           (deferred:parallel
@@ -2051,12 +2064,12 @@ the next sync"
 ;;
 
 (defun org-toodledo-priority-to-org (priority)
-  "Convert PRIORITY from Toodledo to an org-mode letter"
+  "Convert PRIORITY from Toodledo to an org-mode letter."
   (min (- ?D (string-to-number priority)) org-lowest-priority))
 
 (defun org-toodledo-org-to-priority (priority)
-  "Convert PRIORITY from org-mode priority string like '[#A]' to
-Toodledo priority"
+  "Convert PRIORITY from org-mode priority string.
+ '[#A]' to Toodledo priority."
   ;; A=3, B=2, C=1, D=0, E-Z=-1 no priorty=org-default-priority
   (let ((p (if (and priority (string-match "\[#[A-Z]\]" priority))
                (elt priority 2)
@@ -2245,7 +2258,8 @@ If POS is t, return position, otherwise a marker."
 ;;
 (defun org-toodledo-save-hook ()
   "Save hook called before saving a file.
-If this is an org-mode file and this file has been synced with Toodledo, check for saving.
+If this is an org-mode file and this file has been synced with
+Toodledo, check for saving.
 
  See org-toodledo-sync-on-save."
   (when (and (eq (current-buffer) (find-file-noselect org-toodledo-file))
@@ -2304,21 +2318,21 @@ If no such folder exists, a new top-level heading is created."
     "0"))
 
 (defun org-toodledo-get-folder-id ()
-  "Recusive function that walks up from point until either a
-heading is found that has the 'ToodledlFolderID' property.  If
-a bare heading is found (not a TODO and not already a folder), that
-heading is converted into a folder."
+  "Recusive function that walks up from point until either a heading is found that has the 'ToodledlFolderID' property.
+  If a bare heading is found (not a TODO and not already a
+  folder), that heading is converted into a folder."
   (save-excursion
     (org-toodledo-get-folder-id-recurse)))
 
 (defun org-toodledo-switch-folder-support-mode-to-headings ()
-  "Iterate over all tasks, moving tasks with 'ToodledoFolder' properties
-to headings based on the folder naming as follows:
+  "Iterate over all tasks.
+moving tasks with 'ToodledoFolder' properties to headings based
+on the folder naming as follows:
 
- * If a task is a sub-task, just drop the folder property
+* If a task is a sub-task, just drop the folder property
 
- * If a task has a folder property, move the subtree to a heading by the
-   same name and drop the folder property
+* If a task has a folder property, move the subtree to a heading by the
+same name and drop the folder property
 "
   (interactive)
   (org-toodledo-get-folders t)
@@ -2346,11 +2360,11 @@ to headings based on the folder naming as follows:
 ;;
 
 (defun org-toodledo-server-add-tasks (tasks)
-  "Add TASKS"
+  "Add TASKS."
   (org-toodledo-server-addedit-tasks "tasks/add" tasks))
 
 (defun org-toodledo-server-edit-tasks (tasks)
-  "Edit TASKS"
+  "Edit TASKS."
   (org-toodledo-server-addedit-tasks "tasks/edit" tasks))
 
 (defun org-toodledo-parse-tasks-xml (xmlresult)
