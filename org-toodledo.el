@@ -1153,10 +1153,10 @@ will not archive completed tasks"))))
         (lambda ()
             (deferred:wait 500)))
       (deferred:nextc it
-        (lambda ()
+        (deferred:lambda (x)
           (with-current-buffer buf
             (save-excursion
-              (while new-tasks
+              (when new-tasks
                 (setq new-tasks-count (+ new-tasks-count (length new-tasks)))
                 (let ((result (org-toodledo-server-add-tasks new-tasks))
                       next-new-tasks)
@@ -1230,7 +1230,9 @@ will not archive completed tasks"))))
                   (when new-parent-edit-child-alist
                     (org-toodledo-die
                      (format "Orphaned edit child tasks never got a parent ID: %S"
-                             new-parent-edit-child-alist)))))))))
+                             new-parent-edit-child-alist)))))))
+          (when new-tasks
+            (deferred:nextc (deferred:wait 500) self))))
       (deferred:nextc it
         (lambda ()
           (deferred:wait 500)))
@@ -1360,6 +1362,7 @@ will not archive completed tasks"))))
                   result)
                 (remove-hook 'before-save-hook 'org-toodledo-save-hook)
                 (save-buffer)
+                (org-toodledo-info "Sync completeted.")
                 (add-hook 'before-save-hook 'org-toodledo-save-hook)
                 ))))))))
 
