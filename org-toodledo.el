@@ -96,7 +96,7 @@ See http://www.toodledo.com/info/api_doc.php"
   :group 'org-toodledo
   :type 'string)
 
-(defcustom org-toodledo-file ""
+(defcustom org-toodledo-file nil
   "Filename sync with Toodledo."
   :group 'org-toodledo
   :type 'file)
@@ -777,6 +777,8 @@ Return a list of task alists."
 (defun org-toodledo-sync (&optional skip-import skip-export init)
   "Synchronize tasks with the server bidirectionally asynchronously."
   (interactive)
+  (unless org-toodledo-file
+    (org-toodledo-error "org-toodledo-file is not set yet"))
   (lexical-let*
       ((buf (find-file-noselect org-toodledo-file))
        (regexp (concat "^\\*+[ \t]+\\(" org-todo-regexp "\\)"))
@@ -2263,8 +2265,9 @@ If POS is t, return position, otherwise a marker."
   "Save hook called before saving a file.
 If this is an org-mode file and this file has been synced with
 Toodledo, check for saving.
-
  See org-toodledo-sync-on-save."
+  (unless org-toodledo-file
+    (org-toodledo-error "org-toodledo-file is not set yet"))
   (when (and (eq (current-buffer) (find-file-noselect org-toodledo-file))
     (cond
      ((string= org-toodledo-sync-on-save "ask")
