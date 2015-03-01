@@ -1,4 +1,4 @@
-* Overview  [[https://travis-ci.org/myuhe/org-toodledo][https://travis-ci.org/myuhe/org-toodledo.svg?branch=master]] [[https://coveralls.io/r/myuhe/org-toodledo?branch=master][https://coveralls.io/repos/myuhe/org-toodledo/badge.svg?branch=master]]
+* Overview [[http://melpa.org/#/org-toodledo][file:http://melpa.org/packages/org-toodledo-badge.svg]] [[https://travis-ci.org/myuhe/org-toodledo][https://travis-ci.org/myuhe/org-toodledo.svg?branch=master]] [[https://coveralls.io/r/myuhe/org-toodledo?branch=master][https://coveralls.io/repos/myuhe/org-toodledo/badge.svg?branch=master]]
 
 This package adds the ability to sync org-mode tasks with Toodledo, a
 powerful web-based todo list manager that welcomes 3rd party
