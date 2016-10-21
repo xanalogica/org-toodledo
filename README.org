@@ -13,6 +13,16 @@ This version of `org-toodledo' utilizes version 2.0 of the Toodledo API.
 -  `libxml2' -- you should compile emacs with libxml2
 -  `request' -- https://github.com/tkf/emacs-request
 
+- `cl-lib'           -- (part of Emacs 24.5) Core Common Lisp compatibility
+- `json'             -- (part of Emacs 24.5) Parse and generate JSON formats
+- `xml'              -- (part of Emacs 24.5) Parse and generate XML formats
+- `ert'              -- (part of Emacs 24.5) Test Execution Framework
+- `org'              -- (part of Emacs 24.5) org-mode
+- `org-agenda'       -- (part of Emacs 24.5) agenda parts to org-mode
+- `request-deferred' -- 0.2.0 MELPA-STABLE
+- `request'          -- 0.2.0 MELPA-STABLE
+- `undercover'       -- (0.6.0 in ELPA)
+
 2. Put this file in your load path, byte compile the file for best
    performance, see `byte-compile-file'.
 
@@ -314,6 +324,8 @@ is changed, so the server rejects it because you can't can't have a
 
 TODO Feature Requests: highest priority at top
 
+-  Support tasks across all agenda files. (cjwhite, xanalogica)
+
 -  access to toodledo via proxy would also be good for those inside
    proxy based firewalls. (stophlong)
 
@@ -323,6 +335,3 @@ TODO Feature Requests: highest priority at top
 
 -  Option to restrict synchronization to just sync tasks under the the
    base Toodledo entry. (cjwhite)
-
--  Support tasks across all agenda files. (cjwhite)
-
