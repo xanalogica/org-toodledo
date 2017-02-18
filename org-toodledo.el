@@ -284,7 +284,7 @@ Reload if FORCE is non-nil.")
 (org-toodledo-make-lookup-function "goal")
 
 (defconst org-toodledo-fields
-  '(;; Toodledo recongized fields
+  '( ;; Toodledo recognized fields
     "id" "title" "status" "completed" "repeat" "repeatfrom" "context"
     "duedate" "duetime" "startdate" "starttime" "modified" "folder"
     "goal" "priority" "note" "length" "parent" "tag"
@@ -325,7 +325,7 @@ Reload if FORCE is non-nil.")
 returns them automatically, or because they are internal only fields")
 
 (defconst org-toodledo-fields-dont-send
-  '(;; Toodledo automatically sets modified, so don't attempt to push it
+  '( ;; Toodledo automatically sets modified, so don't attempt to push it
     "modified"
     ;; org-toodledo only fields
     "sync" "hash")
@@ -1365,7 +1365,7 @@ will not archive completed tasks"))))
                   result)
                 (remove-hook 'before-save-hook 'org-toodledo-save-hook)
                 (save-buffer)
-                (org-toodledo-info "Sync completeted.")
+                (org-toodledo-info "Sync completed.")
                 (add-hook 'before-save-hook 'org-toodledo-save-hook)
                 ))))))))
 
