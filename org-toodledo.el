@@ -43,6 +43,7 @@
 ;;
 ;; 1. Required Emacs package:
 ;;       * `request'
+;;       * `request-deferred'
 ;;
 ;; 2. Put this file in your load path, byte compile the file for best
 ;;    performance, see `byte-compile-file'.
@@ -182,7 +183,7 @@ Each hook is called with a single argument, the result list:
 Where:
    tot - total number of changes processed
    imod idel inew - number of received modifications, deletions, and new tasks
-   onew omod odel - number of sent new, modificaitons, and deletions
+   onew omod odel - number of sent new, modifications, and deletions
    errors - number of errors"
   :group 'org-toodledo
   :type 'hook)
@@ -309,7 +310,7 @@ Reload if FORCE is non-nil.")
                            (not (equal value "")))
                       value
                     nil))))
-          
+
           (eval `(defun ,(intern (concat "org-toodledo-task-" field)) (task)
                    ,(concat "Return the task property '" field "' for TASK")
                    (cdr (assoc ,field task))))))
@@ -590,7 +591,7 @@ folders and contexts, etc.  Call this if switching accounts."
                 (goto-char m)
                 (org-cut-subtree))))
 
-          ;; Finally, updated the version of the file
+          ;; Finally, update the version of the file
           (if (org-toodledo-goto-base-entry)
               (org-entry-put
                (point) "OrgToodledoVersion" org-toodledo-version)))))))
@@ -708,7 +709,7 @@ Return a list of task alists."
     'task)))
 
 ;;
-;; Implementation notes on how to subtask support :
+;; Implementation notes on how to support the use of 'subtasks':
 ;;
 ;; Syncing new tasks to the server is more complex, consider all new tasks:
 ;;    * TASKS
@@ -775,7 +776,7 @@ Return a list of task alists."
 ;;       - need to move the task back to the normal new task folder
 
 (defun org-toodledo-sync (&optional skip-import skip-export init)
-  "Synchronize tasks with the server bidirectionally asynchronously."
+  "Bidirectionally synchronize tasks with the server, asynchronously."
   (interactive)
   (unless org-toodledo-file
     (org-toodledo-error "org-toodledo-file is not set yet"))
@@ -813,7 +814,7 @@ Return a list of task alists."
        (errors 0)
        (end nil) ;; Restrict to Toodledo Task heading only?  XXXCJ
        completed-tasks)
-    
+
     (org-toodledo-info "Starting org-toodledo-sync")
     (org-toodledo-debug "  called interactively: %S"
                         (called-interactively-p 'interactive))
@@ -855,9 +856,9 @@ will not archive completed tasks"))))
       (deferred:nextc it
         (lambda ()
           (deferred:parallel
-            (lambda () 
+            (lambda ()
               (org-toodledo-call-async-method "account/get"))
-            (lambda () 
+            (lambda ()
               (org-toodledo-call-async-method "folders/get")))))
       (deferred:nextc it
         (lambda (data)
@@ -895,7 +896,7 @@ will not archive completed tasks"))))
                                    "0" "-1"))
 
                     (alist-put params "fields" (mapconcat 'identity org-toodledo-fields-ask ","))
-                    
+
                     (deferred:$
                       (org-toodledo-call-async-method "tasks/get" params)
                       (deferred:nextc it
@@ -914,7 +915,7 @@ will not archive completed tasks"))))
                               ;; ...then any child tasks (filter-child = t)
                               (mapc (lambda (task) (org-toodledo-process-task task t))
                                     server-edit-tasks)
-                              
+
                               ;; Now, go through server-edit-tasks and look for
                               ;; completed parents, and archive
                               (when org-toodledo-archive-completed-tasks
@@ -1246,7 +1247,7 @@ will not archive completed tasks"))))
                 (with-current-buffer buf
                   (save-excursion
                     (org-toodledo-server-edit-tasks edit-tasks)))))
-            (lambda () 
+            (lambda ()
               (when delete-tasks
                 (with-current-buffer buf
                   (save-excursion
@@ -2472,7 +2473,7 @@ Returns a list of results."
     (while (not done)
       (let* ((url (concat  (if org-toodledo-use-https "https" "http")
                                    "://api.toodledo.com/2/" method-name ".php")))
-        
+
         (when (eq req nil)
           (request url
                    :params send-params
