@@ -3,8 +3,13 @@
 
 (package-file "org-toodledo.el")
 
+(depends-on "request-deferred")
+
 (development
-  (depends-on "request")
-  (depends-on "ert-runner")
+  (depends-on "buttercup")
   (depends-on "undercover")
-  (depends-on "cl-lib"))
+  (depends-on "ert-runner")
+  (depends-on "ecukes")
+  (depends-on "request")
+  (depends-on "cl-lib")
+)

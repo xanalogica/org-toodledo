@@ -335,3 +335,13 @@ TODO Feature Requests: highest priority at top
 
 -  Option to restrict synchronization to just sync tasks under the the
    base Toodledo entry. (cjwhite)
+
+* Contribution
+
+To contribute to this project, install Cask and then:
+
+$ make install
+
+Run the tests with:
+
+$ make test
