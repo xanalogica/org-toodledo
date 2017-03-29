@@ -1,4 +1,4 @@
-/ert-tests/ert.el
+.cask/
 *-autoloads.el
 *.elc
 *~
