@@ -1,9 +1,13 @@
+;;; -*- lexical-binding: t; -*-
+
 (require 'undercover-init.el)
 (require 'org-toodledo)
 
 (describe "Error Codes Suite"
   (it "Mapping of Error Codes into Message Strings"
-    (let* ((a 12))
+    (let* (
+      (a 12)
+      )
       (expect (org-toodledo-error-num-to-str "1") :to-equal "You did not specify a key for authentication")
       (expect (org-toodledo-error-num-to-str "2") :to-equal "The authentication key that you provided has expired or is invalid")
       (expect (org-toodledo-error-num-to-str "3") :to-equal "Only 50 tasks can be added/edited/deleted at a time")
