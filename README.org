@@ -345,3 +345,22 @@ $ make install
 Run the tests with:
 
 $ make test
+
+* Automated Testing Coverage Badge
+
+[[https://coveralls.io/repos/github/xanalogica/org-toodledo/badge.svg?branch=master]]
+
+.. image::
+
+:target: https://coveralls.io/github/xanalogica/org-toodledo?branch=master
+
+
+
+
+
+
+
+<a
+href='https://coveralls.io/github/xanalogica/org-toodledo?branch=master'><img
+src='https://coveralls.io/repos/github/xanalogica/org-toodledo/badge.svg?branch=master'
+alt='Coverage Status' /></a>
