@@ -163,7 +163,7 @@ ignoring any parent/child relationship."
   :type '(choice (const :tag "Store folder as property only" nil)
                  (const :tag "Treat folders as headings" heading)))
 
-(defcustom org-tqoodledo-archive-deleted-tasks nil
+(defcustom org-toodledo-archive-deleted-tasks nil
   "Non-nil means archive deleted tasks once they are synced to the server."
   :group 'org-toodledo
   :type 'boolean)
